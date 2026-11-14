@@ -24,6 +24,15 @@ const Footer = () => {
     { name: 'Contact', href: '/contact' },
   ];
 
+  const legalLinks = [
+    { name: 'Privacy', href: '/policies/privacy' },
+    { name: 'Terms', href: '/policies/terms' },
+    { name: 'Event Terms', href: '/policies/event-terms' },
+    { name: 'Refunds', href: '/policies/refunds' },
+    { name: 'Grievance', href: '/policies/grievance' },
+    { name: 'All policies', href: '/policies' },
+  ];
+
   return (
     <footer className="relative bg-[#050505] border-t border-white/5 py-16" data-testid="footer">
       <div className="max-w-7xl mx-auto px-6 md:px-12">
@@ -130,6 +139,13 @@ const Footer = () => {
           <p className="text-muted-foreground text-sm mb-4 md:mb-0">
             © {new Date().getFullYear()} Flareonix. All rights reserved.
           </p>
+          <nav className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-4 md:mb-0" aria-label="Legal" data-testid="footer-legal-links">
+            {legalLinks.map((l) => (
+              <Link key={l.href} to={l.href} className="text-muted-foreground hover:text-primary transition-colors text-xs" data-testid={`footer-legal-${l.href.split('/').pop()}`}>
+                {l.name}
+              </Link>
+            ))}
+          </nav>
           <button
             onClick={scrollToTop}
             className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm group"

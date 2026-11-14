@@ -28,6 +28,9 @@ import BlogPostPage from "@/pages/BlogPostPage";
 import GrowthConsultationPage from "@/pages/GrowthConsultationPage";
 import EventsPage from "@/pages/EventsPage";
 import EventDetailPage from "@/pages/EventDetailPage";
+import PolicyPage from "@/pages/PolicyPage";
+import PoliciesPage from "@/pages/PoliciesPage";
+import AdminResetPasswordPage from "@/pages/AdminResetPasswordPage";
 
 function AppRouter() {
   const location = useLocation();
@@ -64,6 +67,12 @@ function AppRouter() {
           </ProtectedRoute>
         } 
       />
+      <Route path="/policies" element={<PoliciesPage />} />
+      <Route path="/policies/:slug" element={<PolicyPage />} />
+      <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
+      <Route path="/terms" element={<PolicyPage slug="terms" />} />
+      <Route path="/refund-policy" element={<PolicyPage slug="refunds" />} />
+      <Route path="/admin/reset-password" element={<AdminResetPasswordPage />} />
       <Route path="/admin/*" element={<AdminPanel />} />
     </Routes>
   );

@@ -48,10 +48,6 @@ export const SPARK_COLORS = ["#FF6B00", "#FF8C00", "#FFB300", "#CC2200", "#FF450
 
 // Admin
 export const ADMIN_EMAIL = "connectflareonix@gmail.com";
-export const ADMIN_CREDENTIALS = {
-  email: "connectflareonix@gmail.com",
-  note: "Password: Flareonix@admin02",
-};
 
 // API
 export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;

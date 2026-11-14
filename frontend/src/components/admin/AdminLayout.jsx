@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Users as TeamIcon, Briefcase, Handshake, Inbox,
-  Star, UserCog, Megaphone, Settings, LogOut, Menu, X, CalendarDays,
+  Star, UserCog, Megaphone, Settings, LogOut, Menu, X, CalendarDays, ScrollText,
 } from 'lucide-react';
-import { adminClear } from './adminAuth';
+import axios from 'axios';
+import { API } from '@/config/constants';
+import { adminClear, adminAuthConfig } from './adminAuth';
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -17,6 +19,7 @@ const links = [
   { to: '/admin/feedback', label: 'Feedback & Reviews', icon: Star },
   { to: '/admin/users', label: 'Users', icon: UserCog },
   { to: '/admin/announcements', label: 'Announcements', icon: Megaphone },
+  { to: '/admin/policies', label: 'Policies', icon: ScrollText },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -33,6 +36,7 @@ const AdminLayout = ({ children }) => {
   }, []);
 
   const logout = () => {
+    axios.post(`${API}/admin/logout`, {}, adminAuthConfig()).catch(() => {});
     adminClear();
     nav('/admin');
   };

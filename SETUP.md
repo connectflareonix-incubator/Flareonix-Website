@@ -23,8 +23,16 @@ All API routes are served under `/api`.
 | `MONGO_URL` | MongoDB connection string |
 | `DB_NAME` | Database name |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Admin panel login |
-| `EMERGENT_LLM_KEY` | Key used by the AI Tools (Claude Sonnet 4.5) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Admin panel login. Changing `ADMIN_PASSWORD` and restarting resets the admin password |
+| `ADMIN_RECOVERY_EMAIL` | Inbox that receives "Forgot password" reset links |
+| `JWT_SECRET` | Random secret that signs admin sessions (64 hex characters) |
+| `PUBLIC_SITE_URL` | Public frontend address used in reset-link emails, e.g. `https://flareonix.in` |
+| `EMERGENT_EMAIL_KEY` / `EMAIL_FROM_NAME` / `EMAIL_REPLY_TO` | Transactional email (Emergent Managed Email, powered by Resend) |
+| `EMERGENT_LLM_KEY` | Key used by the AI Tools (Claude Sonnet 5.5, Claude Opus 5.5, GPT 6 Luna) |
+
+### Resetting the admin password
+1. **From the website:** `/admin` → "Forgot password?" emails a one-time link (valid 30 minutes) to `ADMIN_RECOVERY_EMAIL`.
+2. **From your hosting settings:** set a new `ADMIN_PASSWORD` and restart the backend; it replaces the current password and signs out old sessions.
 
 ## 3. Frontend
 ```bash

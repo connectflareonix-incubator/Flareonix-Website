@@ -1,44 +1,20 @@
 # Flareonix Test Credentials
 
-## Admin Panel (HTTP Basic Auth)
-- URL: `/admin`
-- Email: `connectflareonix@gmail.com`
-- Password: `Flareonix@admin02`
+## Admin Panel (`/admin`)
+- Email: value of `ADMIN_EMAIL` in `/app/backend/.env` (connectflareonix@gmail.com)
+- Password: value of `ADMIN_PASSWORD` in `/app/backend/.env` (read it from the file; never write it in this repo — the repos are public)
+- Auth: `POST /api/admin/login` {email, password} -> `{token}` + httpOnly `admin_token` cookie. Send `Authorization: Bearer <token>` on `/api/admin/*`.
+- Other endpoints: `GET /api/admin/verify`, `POST /api/admin/logout`, `POST /api/admin/forgot-password` (emails a reset link to ADMIN_RECOVERY_EMAIL; max 3/hour), `POST /api/admin/reset-password` {token, new_password}
+- Lockout: 5 failed logins per IP+email -> 15 min (429). HTTP Basic auth no longer works.
+- Reset: if ADMIN_PASSWORD changes in .env and the backend restarts, it becomes the admin password again.
 
 ## User Authentication
-- Strategy: Emergent Google OAuth
-- Login URL: `/login` (redirects to Emergent auth)
-- Callback URL: handled by `/components/AuthCallback.jsx`
-- Session: `session_token` cookie OR `Authorization: Bearer <token>` header (7 day expiry)
-
-## Test User Seeding (for backend testing)
-The testing agent can seed a user + session via direct MongoDB insert. Example:
-```python
-import uuid, os
-from datetime import datetime, timezone, timedelta
-from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
-load_dotenv('/app/backend/.env')
-
-db = AsyncIOMotorClient(os.environ['MONGO_URL'])[os.environ['DB_NAME']]
-uid = 'user_test_' + uuid.uuid4().hex[:8]
-await db.users.insert_one({
-    'user_id': uid, 'email': f'{uid}@flareonix.test', 'name': 'Test User',
-    'picture': None, 'role': 'user',
-    'created_at': datetime.now(timezone.utc).isoformat()
-})
-tok = 'tok_' + uuid.uuid4().hex
-await db.user_sessions.insert_one({
-    'user_id': uid, 'session_token': tok,
-    'expires_at': (datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),
-    'created_at': datetime.now(timezone.utc).isoformat()
-})
-# use header: Authorization: Bearer <tok>
-```
+- Strategy: Emergent Google OAuth (`/login`), session via `session_token` cookie or `Authorization: Bearer <token>` (7 days)
 
 ## Pre-seeded QA user session (preview DB)
 - user_id `user_qa_test`, email `qa.tester@example.com`
-- Cookie `session_token=qa_session_token_123` (or `Authorization: Bearer qa_session_token_123`), 7-day expiry
+- Cookie `session_token=qa_session_token_123` (or `Authorization: Bearer qa_session_token_123`)
 
 ## Backend env
-- `EMERGENT_LLM_KEY`: present in `/app/backend/.env` (AI tools: claude-sonnet-5-5, claude-opus-5-5, gpt-6-luna)
+- `EMERGENT_LLM_KEY` (AI tools: claude-sonnet-5-5, claude-opus-5-5, gpt-6-luna)
+- `EMERGENT_EMAIL_KEY`, `EMAIL_FROM_NAME`, `ADMIN_RECOVERY_EMAIL` (aayushmanjhariya@gmail.com), `PUBLIC_SITE_URL`, `JWT_SECRET`

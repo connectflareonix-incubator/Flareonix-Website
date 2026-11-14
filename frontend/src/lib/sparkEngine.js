@@ -6,6 +6,9 @@
  */
 
 const COLORS = ["#FF6B00", "#FF8C00", "#FFB300", "#CC2200", "#FF4500"];
+const TRAIL_KINDS = ["cursor", "hover"];
+const TRAIL_FADE_MS = 200;     // trails clear within 0.2s on scroll / other activity
+const TOUCH_IDLE_MS = 800;     // + 200ms fade => touch sparks gone 1s after the last touch
 
 class SparkEngine {
   constructor() {
@@ -21,6 +24,10 @@ class SparkEngine {
     this.lastMoveTime = 0;
     this.boundResize = this.resize.bind(this);
     this.boundMove = this.onMouseMove.bind(this);
+    this.boundTouch = this.onTouch.bind(this);
+    this.boundInterrupt = this.onInterrupt.bind(this);
+    this.lastTouch = 0;
+    this.touchFaded = true;
     this.hoverElements = new WeakSet();
     this.hoveredEl = null;
     this.transitionParticles = false;
@@ -48,6 +55,12 @@ class SparkEngine {
     this.resize();
     window.addEventListener("resize", this.boundResize);
     window.addEventListener("mousemove", this.boundMove, { passive: true });
+    window.addEventListener("touchstart", this.boundTouch, { passive: true });
+    window.addEventListener("touchmove", this.boundTouch, { passive: true });
+    window.addEventListener("scroll", this.boundInterrupt, { passive: true, capture: true });
+    window.addEventListener("wheel", this.boundInterrupt, { passive: true });
+    window.addEventListener("keydown", this.boundInterrupt);
+    window.addEventListener("pointerdown", this.boundInterrupt, { passive: true });
 
     // Re-bind button hover sparks whenever DOM changes
     this.attachHoverListeners();
@@ -92,6 +105,32 @@ class SparkEngine {
     const dy = this.cursor.y - this.cursor.py;
     this.cursor.speed = Math.sqrt(dx * dx + dy * dy);
     this.lastMoveTime = performance.now();
+  }
+
+  // Shorten the remaining life of trail particles so they fade out within `ms`.
+  fadeOut(kinds, ms) {
+    const frames = Math.round(ms / 16.7);
+    for (const p of this.particles) {
+      if (kinds.includes(p.kind)) p.life = Math.min(p.life, p.age + frames);
+    }
+  }
+
+  // A new touch wipes the previous touch's sparks immediately.
+  onTouch(e) {
+    if (e.type === "touchstart") {
+      this.fadeOut(TRAIL_KINDS, 0);
+      this.hoveredEl = null;
+    }
+    this.lastTouch = performance.now();
+    this.touchFaded = false;
+  }
+
+  // Scrolling, typing or clicking stops any button / cursor trail (0.2s fade).
+  onInterrupt() {
+    this.hoveredEl = null;
+    this.lastMoveTime = 0;
+    this.cursor.speed = 0;
+    this.fadeOut(TRAIL_KINDS, TRAIL_FADE_MS);
   }
 
   spawnAmbient() {
@@ -196,9 +235,13 @@ class SparkEngine {
     document.querySelectorAll(selector).forEach((el) => {
       if (this.hoverElements.has(el)) return;
       this.hoverElements.add(el);
-      el.addEventListener("mouseenter", () => { this.hoveredEl = el; });
+      el.addEventListener("mouseenter", () => {
+        if (this.hoveredEl && this.hoveredEl !== el) this.fadeOut(["hover"], TRAIL_FADE_MS);
+        this.hoveredEl = el;
+      });
       el.addEventListener("mouseleave", () => {
         if (this.hoveredEl === el) this.hoveredEl = null;
+        this.fadeOut(["hover"], TRAIL_FADE_MS);
       });
     });
   }
@@ -226,7 +269,20 @@ class SparkEngine {
     // Treat the pointer as idle if it hasn't moved recently. This stops the
     // cursor/hover spark emitters from leaving a permanent cluster on screen
     // (especially after a tap on touch devices where mouseleave never fires).
-    const idle = (performance.now() - this.lastMoveTime) > 350;
+    const now = performance.now();
+    const idle = (now - this.lastMoveTime) > 350;
+
+    // Touch: everything from the last tap is gone 1s after the last touch.
+    if (!this.touchFaded && now - this.lastTouch > TOUCH_IDLE_MS) {
+      this.fadeOut(TRAIL_KINDS, TRAIL_FADE_MS);
+      this.hoveredEl = null;
+      this.touchFaded = true;
+    }
+    if (this.hoveredEl && !document.contains(this.hoveredEl)) {
+      this.hoveredEl = null;
+      this.fadeOut(["hover"], TRAIL_FADE_MS);
+    }
+    const touchQuiet = this.lastTouch > 0 && this.touchFaded && now - this.lastTouch < 2000;
 
     // Spawn cursor sparks based on speed — ONLY while the cursor is actually
     // moving. Previously this had a floor of n=2 which kept emitting a fountain
@@ -237,10 +293,10 @@ class SparkEngine {
     if (s > 15) n = this.cursorSparksMax;
     else if (s > 5) n = Math.min(this.cursorSparksMax, Math.round(2 + (s - 5) * 0.4));
     else if (s > 2.5) n = 2;
-    if (!idle && n > 0 && this.cursor.x > -9000) this.spawnCursorSparks(Math.min(n, this.cursorSparksMax));
+    if (!idle && !touchQuiet && n > 0 && this.cursor.x > -9000) this.spawnCursorSparks(Math.min(n, this.cursorSparksMax));
 
     // Hover sparks — only while actively hovering AND the pointer is moving.
-    if (!idle && this.hoveredEl && document.contains(this.hoveredEl)) {
+    if (!idle && !touchQuiet && this.hoveredEl && document.contains(this.hoveredEl)) {
       const rect = this.hoveredEl.getBoundingClientRect();
       this.spawnHoverSparks(rect, 8);
     }
@@ -317,6 +373,12 @@ class SparkEngine {
     if (this.observer) this.observer.disconnect();
     window.removeEventListener("resize", this.boundResize);
     window.removeEventListener("mousemove", this.boundMove);
+    window.removeEventListener("touchstart", this.boundTouch);
+    window.removeEventListener("touchmove", this.boundTouch);
+    window.removeEventListener("scroll", this.boundInterrupt, { capture: true });
+    window.removeEventListener("wheel", this.boundInterrupt);
+    window.removeEventListener("keydown", this.boundInterrupt);
+    window.removeEventListener("pointerdown", this.boundInterrupt);
   }
 }
 

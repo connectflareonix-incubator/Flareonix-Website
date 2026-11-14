@@ -5,6 +5,12 @@ import { adminAuthConfig } from './adminAuth';
 const cfg = () => adminAuthConfig();
 
 export const adminApi = {
+  // policies
+  listPolicies: () => axios.get(`${API}/admin/policies`, cfg()).then(r => r.data),
+  getPolicy: (slug) => axios.get(`${API}/admin/policies/${slug}`, cfg()).then(r => r.data),
+  updatePolicy: (slug, b) => axios.put(`${API}/admin/policies/${slug}`, b, cfg()).then(r => r.data),
+  setPolicyNotice: (slug, show) => axios.patch(`${API}/admin/policies/${slug}/notice`, { show_draft_notice: show }, cfg()).then(r => r.data),
+  policyVersions: (slug) => axios.get(`${API}/admin/policies/${slug}/versions`, cfg()).then(r => r.data),
   // metrics
   overview: () => axios.get(`${API}/admin/metrics/overview`, cfg()).then(r => r.data),
   timeseries: (days = 30) => axios.get(`${API}/admin/metrics/timeseries?days=${days}`, cfg()).then(r => r.data),

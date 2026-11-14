@@ -1,15 +1,13 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
-import secrets
 import httpx
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -28,28 +26,15 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# Security for admin
-security = HTTPBasic()
-
 # Admin credentials
-ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'connectflareonix@gmail.com')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Flareonix@admin02')
+ADMIN_EMAIL = os.environ['ADMIN_EMAIL']
 
 # Session duration
 SESSION_DURATION_DAYS = 7
 
 
-def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
-    """Verify admin credentials"""
-    correct_username = secrets.compare_digest(credentials.username, ADMIN_EMAIL)
-    correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
-    if not (correct_username and correct_password):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
+from admin_auth import build_admin_auth, ensure_admin_credentials  # noqa: E402
+admin_auth_router, verify_admin = build_admin_auth(db)
 
 
 async def get_current_user(request: Request):
@@ -600,12 +585,6 @@ async def get_analytics_summary(admin: str = Depends(verify_admin)):
 
 # ==================== ADMIN ENDPOINTS ====================
 
-@api_router.get("/admin/verify")
-async def verify_admin_access(admin: str = Depends(verify_admin)):
-    """Verify admin credentials"""
-    return {"success": True, "admin": admin}
-
-
 @api_router.get("/admin/dashboard")
 async def get_admin_dashboard(admin: str = Depends(verify_admin)):
     """Get admin dashboard data"""
@@ -702,6 +681,9 @@ from ai_tools import build_router as build_ai_router
 app.include_router(build_ai_router(db, get_current_user))
 from events_routes import build_events_router
 app.include_router(build_events_router(db, verify_admin, get_current_user))
+app.include_router(admin_auth_router)
+from policy_routes import build_policy_router, seed_policies  # noqa: E402
+app.include_router(build_policy_router(db, verify_admin))
 
 # Content / Admin extended router
 from content_routes import build_content_router
@@ -715,6 +697,8 @@ from db_init import init_db
 async def _startup_init():
     try:
         await init_db(db)
+        await ensure_admin_credentials(db)
+        await seed_policies(db)
         logging.info("DB initialised")
     except Exception as e:
         logging.error(f"DB init failed: {e}")
