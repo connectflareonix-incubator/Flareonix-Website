@@ -6,6 +6,12 @@ import { API } from '@/config/constants';
 import { toast } from 'sonner';
 import axios from 'axios';
 
+const MODEL_LABELS = {
+  'claude-sonnet-5-5': 'Claude Sonnet 5.5',
+  'claude-opus-5-5': 'Claude Opus 5.5',
+  'gpt-6-luna': 'GPT 6 Luna',
+};
+
 const HistoryList = ({ refreshKey }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +69,7 @@ const HistoryList = ({ refreshKey }) => {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs px-2 py-0.5 bg-primary/15 text-primary rounded-full">{it.tool_name}</span>
+                {it.model && <span className="text-xs px-2 py-0.5 bg-white/5 text-white/60 rounded-full" data-testid={`ai-history-model-${it.id}`}>{MODEL_LABELS[it.model] || it.model}</span>}
                 <span className="text-xs text-muted-foreground">{new Date(it.created_at).toLocaleString()}</span>
               </div>
               <p className="text-sm text-white truncate">{it.prompt}</p>

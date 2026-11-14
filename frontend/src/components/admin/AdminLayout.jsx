@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Users as TeamIcon, Briefcase, Handshake, Inbox,
@@ -24,6 +24,13 @@ const AdminLayout = ({ children }) => {
   const loc = useLocation();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
+
+  // Hide the decorative spark canvas inside the CMS
+  useEffect(() => {
+    const c = document.getElementById('flareonix-spark-canvas');
+    if (c) c.style.display = 'none';
+    return () => { if (c) c.style.display = ''; };
+  }, []);
 
   const logout = () => {
     adminClear();

@@ -56,8 +56,13 @@ def build_events_router(db, verify_admin, get_current_user):
     @router.get("/events")
     async def list_events():
         items = await db.events.find({"published": True}, PUBLIC_HIDE).sort("display_order", 1).to_list(500)
+        counts = await db.event_comments.aggregate([
+            {"$match": {"event_id": {"$in": [e["id"] for e in items]}}},
+            {"$group": {"_id": "$event_id", "n": {"$sum": 1}}},
+        ]).to_list(500)
+        by_id = {c["_id"]: c["n"] for c in counts}
         for ev in items:
-            ev["comment_count"] = await db.event_comments.count_documents({"event_id": ev["id"]})
+            ev["comment_count"] = by_id.get(ev["id"], 0)
         return items
 
     @router.get("/events/{key}")
@@ -133,7 +138,8 @@ def build_events_router(db, verify_admin, get_current_user):
 
     @router.delete("/admin/events/{event_id}")
     async def admin_delete_event(event_id: str, _: str = Depends(verify_admin)):
-        await db.events.delete_one({"id": event_id})
+        if (await db.events.delete_one({"id": event_id})).deleted_count == 0:
+            raise HTTPException(404, "Event not found")
         await db.event_comments.delete_many({"event_id": event_id})
         await db.event_waitlist.delete_many({"event_id": event_id})
         return {"success": True}

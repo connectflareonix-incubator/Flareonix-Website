@@ -131,3 +131,21 @@ See `/app/memory/test_credentials.md`.
 
 ## 2026-06 Update
 - Added SETUP.md (self-hosting guide), backend/.env.example, frontend/.env.example. No app code changed; Emergent Google login + Emergent LLM key kept as-is per user request.
+
+## 2026-11 — Events Programme (multi-phase) — Phase 1 DONE
+Source repos (public, read-only): connectflareonix-incubator/Flareonix-Website (Main-Branch = live site edits) and Test-Flareonix-Website (main = Main-Branch + Events prototype). User pushes back via "Save to GitHub" (agent cannot push).
+User choices: start from Main-Branch + latest edits of both repos; Emergent Google sign-in; Emergent Managed Email (Resend); AI model chosen by user (Claude Sonnet 5.5 / Claude Opus 5.5 / GPT 6 Luna); payments: QR image for now, user will send a file describing their forms/payment/automation flow (Razorpay ~1 month away).
+
+Phase 1 implemented (tested iteration_5: backend 17/17, frontend 100%):
+- Merged Main-Branch edits (WhatsApp founder/freelancer links, honest stats, favicon/logo/sitemap/gtag/ld+json, calmer sparks) + Test repo Events (/events, /events/:slug, admin Events, comments)
+- Kept Emergent Google auth, AI tools router, SETUP.md, lint fixes; emergentintegrations upgraded to 0.2.2
+- Events safety: published flag (private by default), slug URLs, https-only registration links, status validation, no public seat counter, /interest click-counter removed, public waitlist closed (site setting events_waitlist_enabled), commenter emails hidden publicly
+- FFT #001 seeded as UNPUBLISHED draft (slug fft-001, 20 Dec 2026 3–7 PM IST, Gautami Heights, Kashipur); never overwrites existing events; old Delhi NCR/20-seat/zite seed removed
+- AI Tools: model picker + SSE streaming, model saved in history; admin hides spark canvas
+
+## Events Roadmap (remaining)
+- P0 Phase 2: public Events UX (hero, HYPED rail, filters, search, SEO/OG), section-based landing page builder, homepage showcase, admin lifecycle states (draft/coming soon/registration open/sold out/postponed/cancelled/ongoing/completed) + display flags (hyped/featured/homepage/gallery), duplicate, preview, schedule, version history, audit log
+- P0 Phase 3: replace HTTP Basic admin with Google sign-in + roles (owner, event manager, content editor, check-in staff, viewer) + authenticator MFA, security headers, rate limits
+- P1 Phase 4: registration & passes per user's forms/payment file (QR payment with manual verification; seats only after verification), QR check-in with replay prevention, Resend confirmation emails
+- P1 Phase 5: Pitch Arena / ambassador / sponsor forms, consent records, privacy requests, legal templates for lawyer review, readiness dashboard, admin guide + FFT publish steps
+- Blockers needing operator: operator identity, legal contacts, policy approvals, verified links, payment provider

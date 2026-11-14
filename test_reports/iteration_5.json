@@ -1,0 +1,38 @@
+{
+  "summary": "Phase 1 Events + AI model picker verified end-to-end. Backend: 17/17 pytest pass (public published-only filtering, no spots_filled, fft-001 404, admin FFT draft fields, slug autogen/invalid/duplicate, https-only registration link, Literal status 422, publish->slug+id fetch->unpublish 404, comments auth/no user_email/slug+id/replies/unpublished 404, waitlist 403 'not open yet', /interest gone, /api/ai/models 3 models sonnet default, SSE delta+done for gpt-6-luna, claude-sonnet-5-5 AND claude-opus-5-5, history saved, unknown model 400, unauth 401). Frontend: AI tool model picker + GPT 6 Luna streaming (result grew 195->401->570 chars) + toast 'Generated with GPT 6 Luna' + history; /events empty state, published card links to /events/{slug}, detail has no seats/waitlist, Register only with https link, unpublished slug redirects to /events with toast, logged-in comment posts without exposing email; admin /admin/events Visibility pill, slug input, Published toggle, no Seats filled, invalid-slug backend toast, publish via UI shows publicly; regression home stats 100+/5+/50k, no Delhi, Navbar Events, /community WhatsApp founders/freelancers links, blog/about/sitemap/favicon/gtag, other admin sections load. No page errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/events", "issue": "N+1 count_documents per event for comment_count (fine at current scale; use aggregation if events grow)"},
+      {"endpoint": "DELETE /api/admin/events/{id}", "issue": "Returns success:true even when id does not exist (no 404)"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AIToolsPage hero badge", "issue": "Still says 'Powered by Claude Sonnet 4.5' though models are now Sonnet 5.5 / Opus 5.5 / GPT 6 Luna", "selector": "frontend/src/pages/AIToolsPage.jsx:28", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AI Tools history list", "issues": ["History items do not show which model generated them (model is stored in backend) - nice-to-have"]},
+      {"screen": "Admin panel", "issues": ["Spark/particle background dots render over admin form area; slightly noisy in a CMS context"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_events_and_ai_models.py", "/app/test_reports/pytest/iter5_events_ai.xml"],
+  "action_items": [
+    "Update AIToolsPage.jsx hero badge text (and server.py comment) from 'Claude Sonnet 4.5' to reflect multi-model choice",
+    "Optional: show model label on AI history items",
+    "Optional: 404 on deleting non-existent event; aggregate comment counts"
+  ],
+  "critical_code_review_comments": [
+    "events_routes: logic sound - published filter in single helper, slug regex + clash check, https gate, email projection on public comments, waitlist hard-gated by site setting",
+    "Admin Events.jsx save handler uses err.response.data.detail directly; for 422 responses detail is an array and toast would render [object Object] (status is a select so unlikely in UI)",
+    "Admin waitlist view/endpoints still exist (admin-only) - fine, but public UI correctly has no waitlist form",
+    "conftest.py (pre-existing) has a hardcoded default BASE_URL fallback - should rely on env only"
+  ],
+  "updated_files": ["/app/backend/tests/test_events_and_ai_models.py"],
+  "success_rate": {"backend": "100%", "frontend": "100% (1 low-priority copy issue)"},
+  "seed_data_creation": "None persisted. Temporary TEST_ events (test-pub-*, test-fe-a, test-fe-b, test-admin-ui-event, test-auto-slug-event-*) were all deleted by id (their comments cascade-deleted). TEST_ AI generations for user_qa_test deleted by id. FFT #001 untouched (published=false). Waitlist setting not enabled.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest tests/test_events_and_ai_models.py -p no:xdist -o addopts=''. QA cookie session_token=qa_session_token_123 (user_qa_test) is valid until 2026-11-21. Admin basic auth from /app/memory/test_credentials.md. Only event in DB is FFT #001 draft (id 04656e2f-...). Opus stream completes in a few seconds."
+}

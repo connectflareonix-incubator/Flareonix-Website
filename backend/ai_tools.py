@@ -3,7 +3,7 @@ import os
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field

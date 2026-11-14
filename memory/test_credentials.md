@@ -36,5 +36,9 @@ await db.user_sessions.insert_one({
 # use header: Authorization: Bearer <tok>
 ```
 
+## Pre-seeded QA user session (preview DB)
+- user_id `user_qa_test`, email `qa.tester@example.com`
+- Cookie `session_token=qa_session_token_123` (or `Authorization: Bearer qa_session_token_123`), 7-day expiry
+
 ## Backend env
-- `EMERGENT_LLM_KEY`: present in `/app/backend/.env` (universal key for Claude Sonnet 4.5)
+- `EMERGENT_LLM_KEY`: present in `/app/backend/.env` (AI tools: claude-sonnet-5-5, claude-opus-5-5, gpt-6-luna)
