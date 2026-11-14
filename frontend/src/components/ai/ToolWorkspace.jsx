@@ -4,10 +4,10 @@ import { ArrowLeft, Sparkles, Copy, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { API } from '@/config/constants';
 import { toast } from 'sonner';
-import axios from 'axios';
 import { getTool } from './toolsConfig';
+import { ModelPicker } from './ModelPicker';
+import { streamGenerate } from './streamGenerate';
 
 const ToolWorkspace = ({ slug, onBack, onSaved }) => {
   const tool = getTool(slug);
@@ -15,6 +15,7 @@ const ToolWorkspace = ({ slug, onBack, onSaved }) => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState('');
   const [copied, setCopied] = useState(false);
+  const [model, setModel] = useState('');
 
   if (!tool) return null;
   const Icon = tool.icon;
@@ -28,17 +29,11 @@ const ToolWorkspace = ({ slug, onBack, onSaved }) => {
     setLoading(true);
     setResult('');
     try {
-      const res = await axios.post(
-        `${API}/ai/generate`,
-        { tool: slug, prompt },
-        { withCredentials: true }
-      );
-      setResult(res.data.response);
+      const done = await streamGenerate({ tool: slug, prompt, model }, (chunk) => setResult((r) => r + chunk));
       onSaved && onSaved();
-      toast.success('Generated with Claude Sonnet 4.5');
+      toast.success(`Generated with ${done.model_label}`);
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Generation failed';
-      toast.error(typeof msg === 'string' ? msg : 'Generation failed');
+      toast.error(err.message || 'Generation failed');
     } finally {
       setLoading(false);
     }
@@ -73,11 +68,12 @@ const ToolWorkspace = ({ slug, onBack, onSaved }) => {
         </div>
         <div>
           <h2 className="font-heading text-2xl font-bold text-white">{tool.name}</h2>
-          <p className="text-sm text-muted-foreground">Powered by Claude Sonnet 4.5</p>
+          <p className="text-sm text-muted-foreground">Pick the AI model that suits your task</p>
         </div>
       </div>
 
       <form onSubmit={handleGenerate} className="p-6 glass rounded-2xl border border-white/10 space-y-4">
+        <ModelPicker value={model} onChange={setModel} />
         <div>
           <Label className="text-white mb-2 block">Tell us what you need</Label>
           <Textarea
@@ -93,7 +89,7 @@ const ToolWorkspace = ({ slug, onBack, onSaved }) => {
         </div>
         <Button
           type="submit"
-          disabled={loading}
+          disabled={loading || !model}
           className="bg-primary text-white hover:bg-primary/90 rounded-full px-6 py-5 font-bold"
           data-testid="ai-generate-btn"
         >

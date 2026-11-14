@@ -50,6 +50,12 @@ async def init_db(db):
     await db.webhook_endpoints.create_index("name", unique=True)
     await db.ai_generations.create_index("user_id")
     await db.ai_generations.create_index("created_at")
+    await db.events.create_index("display_order")
+    await db.events.create_index("status")
+    await db.events.create_index("slug")
+    await db.events.create_index("published")
+    await db.event_comments.create_index("event_id")
+    await db.event_waitlist.create_index("event_id")
 
     # Seed site settings (upsert defaults — won't overwrite existing values)
     for k, v in DEFAULT_SETTINGS.items():
@@ -123,3 +129,48 @@ async def init_db(db):
                 "tags": [],
                 "created_at": _now(),
             })
+
+    # Seed FFT #001 as an unpublished draft. Never overwrites an existing/admin-edited event.
+    has_fft = await db.events.find_one(
+        {"$or": [{"slug": "fft-001"}, {"title": {"$regex": "FFT #001"}}]}, {"_id": 1}
+    )
+    if not has_fft:
+        await db.events.insert_one({
+            "id": str(uuid.uuid4()),
+            "slug": "fft-001",
+            "title": "Flareonix Founders Table #001 (FFT #001)",
+            "date": "20 December 2026, 3 PM - 7 PM IST",
+            "venue": "Gautami Heights, Kashipur, Uttarakhand",
+            "theme": "",
+            "description": (
+                "An afternoon of founder talks, the Pitch Arena, awards and recognition, "
+                "and networking for young founders. Pitch Arena applications close on "
+                "5 December 2026. Guests, passes and registration details will be "
+                "announced once confirmed."
+            ),
+            "short_description": "Founder talks, Pitch Arena, awards and networking in Kashipur.",
+            "cover_image_url": None,
+            "guests": [],
+            "highlights": ["Founder talks", "Pitch Arena", "Awards & recognition", "Networking"],
+            "registration_link": None,
+            "registration_button_text": "Register Now",
+            "capacity": 0,
+            "status": "upcoming",
+            "published": False,
+            "display_order": 1,
+            "created_at": _now(),
+        })
+
+    # Backfill new fields on older events. Missing publish flag => draft (private by default).
+    async for ev in db.events.find({}, {"_id": 0}):
+        upd = {}
+        if "published" not in ev:
+            upd["published"] = False
+        if not ev.get("slug"):
+            upd["slug"] = ev["id"]
+        if "cover_image_url" not in ev:
+            upd["cover_image_url"] = None
+        if "capacity" not in ev:
+            upd["capacity"] = 0
+        if upd:
+            await db.events.update_one({"id": ev["id"]}, {"$set": upd})

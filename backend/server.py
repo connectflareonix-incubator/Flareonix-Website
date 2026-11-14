@@ -700,6 +700,8 @@ app.include_router(api_router)
 # AI Tools router (Claude Sonnet 4.5 via Emergent LLM Key)
 from ai_tools import build_router as build_ai_router
 app.include_router(build_ai_router(db, get_current_user))
+from events_routes import build_events_router
+app.include_router(build_events_router(db, verify_admin, get_current_user))
 
 # Content / Admin extended router
 from content_routes import build_content_router
