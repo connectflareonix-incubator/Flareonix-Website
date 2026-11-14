@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class FlareonixAPITester:
-    def __init__(self, base_url="https://flareonix-rise.preview.emergentagent.com"):
+    def __init__(self, base_url="https://ember-conquer--7jqhblxp.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.tests_run = 0
