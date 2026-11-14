@@ -128,3 +128,6 @@ The visual-edits Babel plugin can crash with stack-overflow / cross-file travers
 
 ## Credentials
 See `/app/memory/test_credentials.md`.
+
+## 2026-06 Update
+- Added SETUP.md (self-hosting guide), backend/.env.example, frontend/.env.example. No app code changed; Emergent Google login + Emergent LLM key kept as-is per user request.

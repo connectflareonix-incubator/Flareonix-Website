@@ -517,7 +517,7 @@ async def track_pageview(input: PageViewCreate, request: Request):
     try:
         user = await get_current_user(request)
         user_id = user.get("user_id")
-    except:
+    except Exception:
         pass
     
     pageview = PageView(
@@ -542,7 +542,7 @@ async def track_click(input: ButtonClickCreate, request: Request):
     try:
         user = await get_current_user(request)
         user_id = user.get("user_id")
-    except:
+    except Exception:
         pass
     
     click = ButtonClick(**input.model_dump(), user_id=user_id)
