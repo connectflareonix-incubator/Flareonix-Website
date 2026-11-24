@@ -1,11 +1,9 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
-import secrets
 import httpx
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
@@ -28,28 +26,12 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# Security for admin
-security = HTTPBasic()
-
-# Admin credentials
+# Admin identity and signed-session authentication.
 ADMIN_EMAIL = os.environ['ADMIN_EMAIL'].strip().lower()
-ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
-
-# Session duration
 SESSION_DURATION_DAYS = 7
 
-
-def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
-    """Verify admin credentials"""
-    correct_username = secrets.compare_digest(credentials.username, ADMIN_EMAIL)
-    correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
-    if not (correct_username and correct_password):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
+from admin_auth import build_admin_auth, ensure_admin_credentials  # noqa: E402
+admin_auth_router, verify_admin = build_admin_auth(db)
 
 
 async def get_current_user(request: Request):
@@ -661,12 +643,6 @@ async def get_analytics_summary(admin: str = Depends(verify_admin)):
 
 # ==================== ADMIN ENDPOINTS ====================
 
-@api_router.get("/admin/verify")
-async def verify_admin_access(admin: str = Depends(verify_admin)):
-    """Verify admin credentials"""
-    return {"success": True, "admin": admin}
-
-
 @api_router.get("/admin/dashboard")
 async def get_admin_dashboard(admin: str = Depends(verify_admin)):
     """Get admin dashboard data"""
@@ -757,6 +733,7 @@ async def root():
 
 # Include the router in the main app
 app.include_router(api_router)
+app.include_router(admin_auth_router)
 
 # AI Tools router (Claude Sonnet 4.5 via Emergent LLM Key)
 
@@ -773,14 +750,26 @@ from db_init import init_db
 async def _startup_init():
     try:
         await init_db(db)
+        await ensure_admin_credentials(db)
         logging.info("DB initialised")
     except Exception as e:
         logging.error(f"DB init failed: {e}")
 
+cors_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.environ.get("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+if not cors_origins or "*" in cors_origins:
+    raise RuntimeError(
+        "CORS_ORIGINS must contain explicit trusted frontend origins; "
+        "wildcard origins are not allowed for credentialed admin authentication."
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
