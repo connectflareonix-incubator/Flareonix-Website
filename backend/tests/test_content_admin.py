@@ -154,7 +154,7 @@ class TestAdminAuth:
             assert k in d, f"missing {k}"
 
     def test_admin_metrics_timeseries(self):
-        r = requests.get(f"{API}/admin/metrics/timeseries?days=30", auth=AUTH)
+        r = requests.get(f"{API}/admin/metrics/timeseries?days=30", headers=AUTH)
         assert r.status_code == 200
         d = r.json()
         for k in ["signups", "pageviews", "contacts", "inquiry_types"]:
@@ -162,7 +162,7 @@ class TestAdminAuth:
 
 
 # ---------- BLOG CRUD + COMMENTS ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestBlogFlow:
     def test_create_publish_get_comment_flow(self, seeded_user):
         # Create published post
@@ -172,7 +172,7 @@ class TestBlogFlow:
             "status": "published",
             "category": "Updates",
         }
-        r = requests.post(f"{API}/admin/blog/posts", json=payload, auth=AUTH)
+        r = requests.post(f"{API}/admin/blog/posts", json=payload, headers=AUTH)
         assert r.status_code == 200, r.text
         post = r.json()
         pid = post["id"]
@@ -201,76 +201,76 @@ class TestBlogFlow:
         CREATED["blog_comment_ids"].append(cid)
 
         # Admin list comments
-        r = requests.get(f"{API}/admin/blog/comments", auth=AUTH)
+        r = requests.get(f"{API}/admin/blog/comments", headers=AUTH)
         assert r.status_code == 200
         assert any(c["id"] == cid for c in r.json())
 
         # Admin reply
         r = requests.put(f"{API}/admin/blog/comments/{cid}",
-                         json={"admin_reply": "Thanks!"}, auth=AUTH)
+                         json={"admin_reply": "Thanks!"}, headers=AUTH)
         assert r.status_code == 200
         assert r.json()["admin_reply"] == "Thanks!"
 
         # Delete comment
-        r = requests.delete(f"{API}/admin/blog/comments/{cid}", auth=AUTH)
+        r = requests.delete(f"{API}/admin/blog/comments/{cid}", headers=AUTH)
         assert r.status_code == 200
 
 
 # ---------- TEAM ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestTeamFlow:
     def test_team_crud(self):
         payload = {"name": "TEST Member", "role": "Test Role", "display_order": 99}
-        r = requests.post(f"{API}/admin/team", json=payload, auth=AUTH)
+        r = requests.post(f"{API}/admin/team", json=payload, headers=AUTH)
         assert r.status_code == 200
         mid = r.json()["id"]
         CREATED["team_ids"].append(mid)
         # update
         r = requests.put(f"{API}/admin/team/{mid}",
-                         json={**payload, "role": "Updated Role"}, auth=AUTH)
+                         json={**payload, "role": "Updated Role"}, headers=AUTH)
         assert r.status_code == 200
         assert r.json()["role"] == "Updated Role"
         # delete
-        r = requests.delete(f"{API}/admin/team/{mid}", auth=AUTH)
+        r = requests.delete(f"{API}/admin/team/{mid}", headers=AUTH)
         assert r.status_code == 200
 
 
 # ---------- PROJECTS ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestProjectFlow:
     def test_project_crud(self):
         payload = {"title": "TEST Project", "description": "desc", "status": "Ongoing"}
-        r = requests.post(f"{API}/admin/projects", json=payload, auth=AUTH)
+        r = requests.post(f"{API}/admin/projects", json=payload, headers=AUTH)
         assert r.status_code == 200
         pid = r.json()["id"]
         CREATED["project_ids"].append(pid)
         r = requests.put(f"{API}/admin/projects/{pid}",
-                         json={**payload, "status": "Completed"}, auth=AUTH)
+                         json={**payload, "status": "Completed"}, headers=AUTH)
         assert r.status_code == 200
         assert r.json()["status"] == "Completed"
-        r = requests.delete(f"{API}/admin/projects/{pid}", auth=AUTH)
+        r = requests.delete(f"{API}/admin/projects/{pid}", headers=AUTH)
         assert r.status_code == 200
 
 
 # ---------- COLLABORATIONS ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestCollabFlow:
     def test_collab_crud(self):
         payload = {"org_name": "TEST Org", "collab_type": "Sponsor", "year": 2026}
-        r = requests.post(f"{API}/admin/collaborations", json=payload, auth=AUTH)
+        r = requests.post(f"{API}/admin/collaborations", json=payload, headers=AUTH)
         assert r.status_code == 200
         cid = r.json()["id"]
         CREATED["collab_ids"].append(cid)
         r = requests.put(f"{API}/admin/collaborations/{cid}",
-                         json={**payload, "year": 2027}, auth=AUTH)
+                         json={**payload, "year": 2027}, headers=AUTH)
         assert r.status_code == 200
         assert r.json()["year"] == 2027
-        r = requests.delete(f"{API}/admin/collaborations/{cid}", auth=AUTH)
+        r = requests.delete(f"{API}/admin/collaborations/{cid}", headers=AUTH)
         assert r.status_code == 200
 
 
 # ---------- CONTACT ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestContactFlow:
     def test_contact_submit_public_and_admin_manage(self):
         payload = {"name": "TEST User", "email": "test@example.com",
@@ -285,27 +285,27 @@ class TestContactFlow:
         CREATED["contact_ids"].append(sid)
 
         # Admin list
-        r = requests.get(f"{API}/admin/contact-submissions", auth=AUTH)
+        r = requests.get(f"{API}/admin/contact-submissions", headers=AUTH)
         assert r.status_code == 200
         assert any(s["id"] == sid for s in r.json())
 
         # Mark read
         r = requests.put(f"{API}/admin/contact-submissions/{sid}",
-                         json={"is_read": True}, auth=AUTH)
+                         json={"is_read": True}, headers=AUTH)
         assert r.status_code == 200
         assert r.json()["is_read"] is True
 
         # Delete
-        r = requests.delete(f"{API}/admin/contact-submissions/{sid}", auth=AUTH)
+        r = requests.delete(f"{API}/admin/contact-submissions/{sid}", headers=AUTH)
         assert r.status_code == 200
 
 
 # ---------- TESTIMONIALS ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestTestimonialFlow:
     def test_testimonial_approval_visibility(self):
         payload = {"client_name": "TEST Client", "quote": "Great work!", "is_approved": True}
-        r = requests.post(f"{API}/admin/testimonials", json=payload, auth=AUTH)
+        r = requests.post(f"{API}/admin/testimonials", json=payload, headers=AUTH)
         assert r.status_code == 200
         tid = r.json()["id"]
         CREATED["testimonial_ids"].append(tid)
@@ -315,21 +315,21 @@ class TestTestimonialFlow:
 
         # Toggle off
         r = requests.put(f"{API}/admin/testimonials/{tid}",
-                         json={**payload, "is_approved": False}, auth=AUTH)
+                         json={**payload, "is_approved": False}, headers=AUTH)
         assert r.status_code == 200
         assert r.json()["is_approved"] is False
         r = requests.get(f"{API}/testimonials")
         assert not any(t["id"] == tid for t in r.json())
 
-        requests.delete(f"{API}/admin/testimonials/{tid}", auth=AUTH)
+        requests.delete(f"{API}/admin/testimonials/{tid}", headers=AUTH)
 
 
 # ---------- ANNOUNCEMENTS (single active enforcement) ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestAnnouncementFlow:
     def test_single_active(self):
         a1 = requests.post(f"{API}/admin/announcements",
-                           json={"message": "TEST A1", "is_active": True}, auth=AUTH)
+                           json={"message": "TEST A1", "is_active": True}, headers=AUTH)
         assert a1.status_code == 200
         id1 = a1.json()["id"]
         CREATED["announcement_ids"].append(id1)
@@ -340,7 +340,7 @@ class TestAnnouncementFlow:
 
         # Create second active -> deactivates first
         a2 = requests.post(f"{API}/admin/announcements",
-                           json={"message": "TEST A2", "is_active": True}, auth=AUTH)
+                           json={"message": "TEST A2", "is_active": True}, headers=AUTH)
         assert a2.status_code == 200
         id2 = a2.json()["id"]
         CREATED["announcement_ids"].append(id2)
@@ -349,11 +349,11 @@ class TestAnnouncementFlow:
         assert r.json().get("id") == id2
 
         for aid in (id1, id2):
-            requests.delete(f"{API}/admin/announcements/{aid}", auth=AUTH)
+            requests.delete(f"{API}/admin/announcements/{aid}", headers=AUTH)
 
 
 # ---------- USERS BAN ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestUserBan:
     def test_ban_clears_session(self):
         uid = "user_ban_test_" + uuid.uuid4().hex[:8]
@@ -369,12 +369,12 @@ class TestUserBan:
         })
         CREATED["user_ids"].append(uid)
 
-        r = requests.get(f"{API}/admin/users", auth=AUTH)
+        r = requests.get(f"{API}/admin/users", headers=AUTH)
         assert r.status_code == 200
         assert any(u["user_id"] == uid for u in r.json())
 
         r = requests.put(f"{API}/admin/users/{uid}",
-                         json={"is_banned": True}, auth=AUTH)
+                         json={"is_banned": True}, headers=AUTH)
         assert r.status_code == 200
         assert r.json().get("is_banned") is True
 
@@ -384,26 +384,26 @@ class TestUserBan:
 
 
 # ---------- SETTINGS UPDATE ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestSettingsUpdate:
     def test_update_tagline_persists(self):
         original = requests.get(f"{API}/settings").json().get("tagline")
         new_val = f"TEST_TAG_{uuid.uuid4().hex[:4]}"
         r = requests.put(f"{API}/admin/settings/tagline",
-                         json={"value": new_val}, auth=AUTH)
+                         json={"value": new_val}, headers=AUTH)
         assert r.status_code == 200
         d = requests.get(f"{API}/settings").json()
         assert d["tagline"] == new_val
         # restore
         requests.put(f"{API}/admin/settings/tagline",
-                     json={"value": original}, auth=AUTH)
+                     json={"value": original}, headers=AUTH)
 
 
 # ---------- WEBHOOKS ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestWebhooks:
     def test_webhooks_seeded_and_update(self):
-        r = requests.get(f"{API}/admin/webhooks", auth=AUTH)
+        r = requests.get(f"{API}/admin/webhooks", headers=AUTH)
         assert r.status_code == 200
         whs = r.json()
         assert any(w.get("name") == "Google Sheets Sync" for w in whs)
@@ -413,17 +413,17 @@ class TestWebhooks:
 
         r = requests.put(f"{API}/admin/webhooks/{wh['id']}",
                          json={"url": "https://example.com/test", "is_active": False},
-                         auth=AUTH)
+                         headers=AUTH)
         assert r.status_code == 200
         assert r.json()["url"] == "https://example.com/test"
         # Restore
         requests.put(f"{API}/admin/webhooks/{wh['id']}",
                      json={"url": original_url, "is_active": original_active},
-                     auth=AUTH)
+                     headers=AUTH)
 
 
 # ---------- AI TOOLS regression ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestAITools:
     def test_ai_tools_list(self):
         r = requests.get(f"{API}/ai/tools")
@@ -435,19 +435,19 @@ class TestAITools:
 def test_zz_cleanup():
     """Final cleanup of any leftover test data."""
     for pid in CREATED["blog_post_ids"]:
-        requests.delete(f"{API}/admin/blog/posts/{pid}", auth=AUTH)
+        requests.delete(f"{API}/admin/blog/posts/{pid}", headers=AUTH)
     for tid in CREATED["team_ids"]:
-        requests.delete(f"{API}/admin/team/{tid}", auth=AUTH)
+        requests.delete(f"{API}/admin/team/{tid}", headers=AUTH)
     for pid in CREATED["project_ids"]:
-        requests.delete(f"{API}/admin/projects/{pid}", auth=AUTH)
+        requests.delete(f"{API}/admin/projects/{pid}", headers=AUTH)
     for cid in CREATED["collab_ids"]:
-        requests.delete(f"{API}/admin/collaborations/{cid}", auth=AUTH)
+        requests.delete(f"{API}/admin/collaborations/{cid}", headers=AUTH)
     for sid in CREATED["contact_ids"]:
-        requests.delete(f"{API}/admin/contact-submissions/{sid}", auth=AUTH)
+        requests.delete(f"{API}/admin/contact-submissions/{sid}", headers=AUTH)
     for tid in CREATED["testimonial_ids"]:
-        requests.delete(f"{API}/admin/testimonials/{tid}", auth=AUTH)
+        requests.delete(f"{API}/admin/testimonials/{tid}", headers=AUTH)
     for aid in CREATED["announcement_ids"]:
-        requests.delete(f"{API}/admin/announcements/{aid}", auth=AUTH)
+        requests.delete(f"{API}/admin/announcements/{aid}", headers=AUTH)
     for uid in CREATED["user_ids"]:
         _db.users.delete_many({"user_id": uid})
         _db.user_sessions.delete_many({"user_id": uid})
