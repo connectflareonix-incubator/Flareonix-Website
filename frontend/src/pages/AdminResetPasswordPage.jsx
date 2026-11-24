@@ -4,7 +4,6 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { API } from '@/config/constants';
 import { apiError } from '@/components/admin/apiError';
-import { adminClear } from '@/components/admin/adminAuth';
 import { AuthCard, authInput, authButton, authButtonStyle } from '@/components/admin/AuthCard';
 
 export default function AdminResetPasswordPage() {
@@ -23,7 +22,6 @@ export default function AdminResetPasswordPage() {
     setError('');
     try {
       await axios.post(`${API}/admin/reset-password`, { token, new_password: pwd });
-      adminClear();
       toast.success('Password updated. Sign in with your new password.');
       nav('/admin', { replace: true });
     } catch (err) {
