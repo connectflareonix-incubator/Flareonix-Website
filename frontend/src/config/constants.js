@@ -46,9 +46,6 @@ export const BRAND_DARK = "#0D0D0D";
 export const BRAND_WHITE = "#F5F5F5";
 export const SPARK_COLORS = ["#FF6B00", "#FF8C00", "#FFB300", "#CC2200", "#FF4500"];
 
-// Admin
-export const ADMIN_EMAIL = "connectflareonix@gmail.com";
-
 // API
 export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
