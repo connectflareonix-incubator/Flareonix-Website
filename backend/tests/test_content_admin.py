@@ -153,6 +153,7 @@ class TestAdminAuth:
 
 
 # ---------- BLOG CRUD + COMMENTS ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestBlogFlow:
     def test_create_publish_get_comment_flow(self, seeded_user):
         # Create published post
@@ -207,6 +208,7 @@ class TestBlogFlow:
 
 
 # ---------- TEAM ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestTeamFlow:
     def test_team_crud(self):
         payload = {"name": "TEST Member", "role": "Test Role", "display_order": 99}
@@ -225,6 +227,7 @@ class TestTeamFlow:
 
 
 # ---------- PROJECTS ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestProjectFlow:
     def test_project_crud(self):
         payload = {"title": "TEST Project", "description": "desc", "status": "Ongoing"}
@@ -241,6 +244,7 @@ class TestProjectFlow:
 
 
 # ---------- COLLABORATIONS ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestCollabFlow:
     def test_collab_crud(self):
         payload = {"org_name": "TEST Org", "collab_type": "Sponsor", "year": 2026}
@@ -257,6 +261,7 @@ class TestCollabFlow:
 
 
 # ---------- CONTACT ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestContactFlow:
     def test_contact_submit_public_and_admin_manage(self):
         payload = {"name": "TEST User", "email": "test@example.com",
@@ -287,6 +292,7 @@ class TestContactFlow:
 
 
 # ---------- TESTIMONIALS ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestTestimonialFlow:
     def test_testimonial_approval_visibility(self):
         payload = {"client_name": "TEST Client", "quote": "Great work!", "is_approved": True}
@@ -310,6 +316,7 @@ class TestTestimonialFlow:
 
 
 # ---------- ANNOUNCEMENTS (single active enforcement) ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestAnnouncementFlow:
     def test_single_active(self):
         a1 = requests.post(f"{API}/admin/announcements",
@@ -337,6 +344,7 @@ class TestAnnouncementFlow:
 
 
 # ---------- USERS BAN ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestUserBan:
     def test_ban_clears_session(self):
         uid = "user_ban_test_" + uuid.uuid4().hex[:8]
@@ -367,6 +375,7 @@ class TestUserBan:
 
 
 # ---------- SETTINGS UPDATE ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestSettingsUpdate:
     def test_update_tagline_persists(self):
         original = requests.get(f"{API}/settings").json().get("tagline")
@@ -382,6 +391,7 @@ class TestSettingsUpdate:
 
 
 # ---------- WEBHOOKS ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestWebhooks:
     def test_webhooks_seeded_and_update(self):
         r = requests.get(f"{API}/admin/webhooks", auth=AUTH)
@@ -404,6 +414,7 @@ class TestWebhooks:
 
 
 # ---------- AI TOOLS regression ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestAITools:
     def test_ai_tools_list(self):
         r = requests.get(f"{API}/ai/tools")
