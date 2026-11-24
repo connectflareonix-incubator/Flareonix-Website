@@ -24,9 +24,9 @@ Existing backend settings `MONGO_URL` and `DB_NAME` are also required.
 - Password reset links are single-use and expire after 30 minutes.
 - Password reset invalidates all previously issued admin sessions.
 - Logout revokes the active admin token and clears the HttpOnly cookie.
-- The frontend stores the short-lived token in tab-scoped `sessionStorage`; it does not store the password.
+- The backend sets the session as an `HttpOnly`, `Secure`, `SameSite=None` cookie. The frontend never reads or stores the JWT in JavaScript storage.
 - Passwords must be at least 12 characters, include letters and numbers, and remain within bcrypt's 72-byte input limit.
 
 ## Deployment caution
 
-Do not deploy until every required variable is configured in the backend host and the frontend origin is confirmed. Do not run the existing integration tests against production: legacy tests use Basic Auth and some tests write directly to MongoDB or mutate content. Convert them to the JWT flow and use a dedicated test database first.
+Do not deploy until every required variable is configured in the backend host, the exact frontend origin is confirmed, and cross-site cookie behavior has been tested in supported browsers. Do not run admin integration tests against production: they write directly to MongoDB and mutate content. Run them only against a dedicated test database. Admin integration requests must authenticate with the `admin_token` cookie.
