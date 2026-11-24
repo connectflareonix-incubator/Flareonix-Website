@@ -116,8 +116,7 @@ def build_admin_auth(db):
         })
 
     async def verify_admin(request: Request) -> str:
-        auth = request.headers.get("Authorization", "")
-        token = auth[7:] if auth.startswith("Bearer ") else request.cookies.get(COOKIE)
+        token = request.cookies.get(COOKIE)
         if not token:
             raise HTTPException(401, "Admin sign-in required")
         try:
@@ -160,7 +159,7 @@ def build_admin_auth(db):
         response.set_cookie(COOKIE, token, httponly=True, secure=True, samesite="none",
                             max_age=TOKEN_HOURS * 3600, path="/")
         await audit("login_success", request)
-        return {"token": token, "email": ADMIN_EMAIL, "expires_in": TOKEN_HOURS * 3600}
+        return {"success": True, "email": ADMIN_EMAIL, "expires_in": TOKEN_HOURS * 3600}
 
     @router.post("/logout")
     async def logout(request: Request, response: Response):
@@ -205,7 +204,7 @@ def build_admin_auth(db):
         return {"success": True, "sent_to": _mask(ADMIN_RECOVERY_EMAIL), "expires_minutes": RESET_MINUTES}
 
     @router.post("/reset-password")
-    async def reset_password(inp: ResetInput, request: Request):
+    async def reset_password(inp: ResetInput, request: Request, response: Response):
         pw = inp.new_password
         if len(pw.encode("utf-8")) > 72:
             raise HTTPException(400, "Password must be no more than 72 UTF-8 bytes")
@@ -224,6 +223,7 @@ def build_admin_auth(db):
         )
         await db.admin_reset_tokens.update_many({"used": False}, {"$set": {"used": True}})
         await db.login_attempts.delete_many({})
+        response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="none")
         await audit("password_reset", request)
         notice = ("<p>The Flareonix admin password was just changed using a reset link, and all admin "
                   "sessions were signed out.</p><p>If this was not you, request a new reset link straight away.</p>")
