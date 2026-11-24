@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '@/config/constants';
-import { adminGetToken, adminClear, adminAuthConfig } from '@/components/admin/adminAuth';
+import { adminAuthConfig } from '@/components/admin/adminAuth';
 import { LoginScreen } from '@/components/admin/LoginScreen';
 import AdminLayout from '@/components/admin/AdminLayout';
 import Dashboard from '@/components/admin/sections/Dashboard';
@@ -17,12 +17,19 @@ import Announcements from '@/components/admin/sections/Announcements';
 import Settings from '@/components/admin/sections/Settings';
 
 const AdminPanel = () => {
-  const [authed, setAuthed] = useState(!!adminGetToken());
+  const [authed, setAuthed] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!authed) return;
-    axios.get(`${API}/admin/verify`, adminAuthConfig()).catch(() => { adminClear(); setAuthed(false); });
-  }, [authed]);
+    axios.get(`${API}/admin/verify`, adminAuthConfig())
+      .then(() => setAuthed(true))
+      .catch(() => setAuthed(false))
+      .finally(() => setChecking(false));
+  }, []);
+
+  if (checking) {
+    return <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center text-white/70">Checking admin session…</div>;
+  }
 
   if (!authed) return <LoginScreen onSuccess={() => setAuthed(true)} />;
 
