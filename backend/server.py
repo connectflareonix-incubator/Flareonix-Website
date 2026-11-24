@@ -32,8 +32,8 @@ api_router = APIRouter(prefix="/api")
 security = HTTPBasic()
 
 # Admin credentials
-ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'connectflareonix@gmail.com')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Flareonix@admin02')
+ADMIN_EMAIL = os.environ['ADMIN_EMAIL'].strip().lower()
+ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
 
 # Session duration
 SESSION_DURATION_DAYS = 7
