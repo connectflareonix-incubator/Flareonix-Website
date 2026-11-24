@@ -24,7 +24,10 @@ if RUN_ADMIN_INTEGRATION_TESTS and ADMIN_EMAIL and ADMIN_PASSWORD:
         timeout=15,
     )
     _login.raise_for_status()
-    AUTH = {"Authorization": f"Bearer {_login.json()['token']}"} 
+    _cookie = _login.cookies.get("admin_token")
+    if not _cookie:
+        raise RuntimeError("Admin login did not set the expected HttpOnly session cookie")
+    AUTH = {"Cookie": f"admin_token={_cookie}"}
 
 # Direct DB connection for user/session seeding + cleanup
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
