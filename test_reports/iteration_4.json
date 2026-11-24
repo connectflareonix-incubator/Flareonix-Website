@@ -58,7 +58,7 @@
     "backend": "100% (26/26 pytest)",
     "frontend": "~92% — all primary flows pass after import fix; minor cosmetic issues with submit-button glow overlay and missing 'post not found' fallback"
   },
-  "test_credentials": "Admin Basic Auth: connectflareonix@gmail.com / Flareonix@admin02. Test user + session token seeded directly into MongoDB during test, then cleaned up.",
+  "test_credentials": "Admin Basic Auth: credentials supplied through environment variables (redacted). Test user + session token seeded directly into MongoDB during test, then cleaned up.",
   "seed_data_creation": "Temporarily seeded one test user (user_tst_e23cf3cf) + session token + 1 blog comment via direct MongoDB insert. The leftover blog post 'TEST Flareonix Rise f877b8' from iteration 3 was also cleaned up at the end. Final blog_posts collection is empty.",
   "retest_needed": false,
   "main_agent_can_self_test": true,
