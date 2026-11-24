@@ -13,9 +13,9 @@ from datetime import datetime, timezone, timedelta
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://flareonix-rise.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
-ADMIN_EMAIL = "connectflareonix@gmail.com"
-ADMIN_PASSWORD = "Flareonix@admin02"
-AUTH = HTTPBasicAuth(ADMIN_EMAIL, ADMIN_PASSWORD)
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+AUTH = HTTPBasicAuth(ADMIN_EMAIL, ADMIN_PASSWORD) if ADMIN_EMAIL and ADMIN_PASSWORD else None
 
 # Direct DB connection for user/session seeding + cleanup
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
@@ -129,6 +129,7 @@ class TestPublicEndpoints:
 
 
 # ---------- ADMIN AUTH ----------
+@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
 class TestAdminAuth:
     def test_admin_endpoint_requires_auth(self):
         r = requests.get(f"{API}/admin/metrics/overview")
