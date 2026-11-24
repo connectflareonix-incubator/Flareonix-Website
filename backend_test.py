@@ -1,5 +1,6 @@
 import requests
 import sys
+import os
 import json
 from datetime import datetime
 
@@ -133,7 +134,12 @@ class FlareonixAPITester:
         """Test admin verification with Basic Auth"""
         try:
             # Test with correct credentials
-            auth = ('connectflareonix@gmail.com', 'Flareonix@admin02')
+            admin_email = os.environ.get('ADMIN_EMAIL')
+            admin_password = os.environ.get('ADMIN_PASSWORD')
+            if not admin_email or not admin_password:
+                self.log_test('Admin Verify', False, 'Set ADMIN_EMAIL and ADMIN_PASSWORD in the test environment')
+                return False
+            auth = (admin_email, admin_password)
             response = requests.get(f"{self.api_url}/admin/verify", auth=auth, timeout=10)
             success = response.status_code == 200
             details = f"Status: {response.status_code}"
