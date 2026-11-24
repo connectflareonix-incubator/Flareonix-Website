@@ -131,34 +131,42 @@ class FlareonixAPITester:
             return False
 
     def test_admin_verify(self):
-        """Test admin verification with Basic Auth"""
+        """Test admin login and JWT verification"""
         try:
-            # Test with correct credentials
             admin_email = os.environ.get('ADMIN_EMAIL')
             admin_password = os.environ.get('ADMIN_PASSWORD')
             if not admin_email or not admin_password:
                 self.log_test('Admin Verify', False, 'Set ADMIN_EMAIL and ADMIN_PASSWORD in the test environment')
-                return False
-            auth = (admin_email, admin_password)
-            response = requests.get(f"{self.api_url}/admin/verify", auth=auth, timeout=10)
+                return False, None
+            response = requests.post(
+                f"{self.api_url}/admin/login",
+                json={"email": admin_email, "password": admin_password},
+                timeout=10,
+            )
             success = response.status_code == 200
             details = f"Status: {response.status_code}"
+            headers = None
             if success:
-                data = response.json()
-                details += f", Success: {data.get('success', False)}"
+                token = response.json().get("token")
+                headers = {"Authorization": f"Bearer {token}"}
+                verify = requests.get(f"{self.api_url}/admin/verify", headers=headers, timeout=10)
+                success = verify.status_code == 200
+                details += f", JWT verify status: {verify.status_code}"
             self.log_test("Admin Verify (Valid Credentials)", success, details)
-            return success, auth
+            return success, headers
         except Exception as e:
             self.log_test("Admin Verify (Valid Credentials)", False, str(e))
             return False, None
 
     def test_admin_verify_invalid(self):
-        """Test admin verification with invalid credentials"""
+        """Test admin login rejects invalid credentials"""
         try:
-            # Test with wrong credentials
-            auth = ('wrong@email.com', 'wrongpassword')
-            response = requests.get(f"{self.api_url}/admin/verify", auth=auth, timeout=10)
-            success = response.status_code == 401  # Unauthorized expected
+            response = requests.post(
+                f"{self.api_url}/admin/login",
+                json={"email": "invalid@example.invalid", "password": "wrong-password"},
+                timeout=10,
+            )
+            success = response.status_code == 401
             details = f"Status: {response.status_code} (Expected 401 for invalid credentials)"
             self.log_test("Admin Verify (Invalid Credentials)", success, details)
             return success
@@ -247,7 +255,7 @@ class FlareonixAPITester:
             return False
             
         try:
-            response = requests.get(f"{self.api_url}/admin/dashboard", auth=auth, timeout=10)
+            response = requests.get(f"{self.api_url}/admin/dashboard", headers=auth, timeout=10)
             success = response.status_code == 200
             details = f"Status: {response.status_code}"
             if success:
