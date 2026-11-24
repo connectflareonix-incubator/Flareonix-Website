@@ -1,21 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Users as TeamIcon, Briefcase, Handshake, Inbox,
-  Star, UserCog, Megaphone, Settings, LogOut, Menu, X,
+  Star, UserCog, Megaphone, Settings, LogOut, Menu, X, CalendarDays, ScrollText,
 } from 'lucide-react';
-import { adminClear } from './adminAuth';
+import axios from 'axios';
+import { API } from '@/config/constants';
+import { adminClear, adminAuthConfig } from './adminAuth';
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/admin/blog', label: 'Blog', icon: FileText },
   { to: '/admin/team', label: 'Team Gallery', icon: TeamIcon },
   { to: '/admin/projects', label: 'Projects', icon: Briefcase },
+  { to: '/admin/events', label: 'Events', icon: CalendarDays },
   { to: '/admin/collaborations', label: 'Collaborations', icon: Handshake },
   { to: '/admin/inbox', label: 'Inbox', icon: Inbox },
   { to: '/admin/feedback', label: 'Feedback & Reviews', icon: Star },
   { to: '/admin/users', label: 'Users', icon: UserCog },
   { to: '/admin/announcements', label: 'Announcements', icon: Megaphone },
+  { to: '/admin/policies', label: 'Policies', icon: ScrollText },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -24,7 +28,15 @@ const AdminLayout = ({ children }) => {
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
 
+  // Hide the decorative spark canvas inside the CMS
+  useEffect(() => {
+    const c = document.getElementById('flareonix-spark-canvas');
+    if (c) c.style.display = 'none';
+    return () => { if (c) c.style.display = ''; };
+  }, []);
+
   const logout = () => {
+    axios.post(`${API}/admin/logout`, {}, adminAuthConfig()).catch(() => {});
     adminClear();
     nav('/admin');
   };
