@@ -13,9 +13,25 @@ from datetime import datetime, timezone, timedelta
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://ember-conquer--7jqhblxp.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
-ADMIN_EMAIL = "connectflareonix@gmail.com"
-ADMIN_PASSWORD = "Flareonix@admin02"
-AUTH = HTTPBasicAuth(ADMIN_EMAIL, ADMIN_PASSWORD)
+from dotenv import load_dotenv  # noqa: E402
+load_dotenv("/app/backend/.env")
+ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+
+
+class _Bearer(requests.auth.AuthBase):
+    """Admin auth moved from HTTP Basic to POST /api/admin/login + Bearer token."""
+    _tok = None
+
+    def __call__(self, r):
+        if not _Bearer._tok:
+            _Bearer._tok = requests.post(f"{API}/admin/login",
+                                         json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}).json()["token"]
+        r.headers["Authorization"] = f"Bearer {_Bearer._tok}"
+        return r
+
+
+AUTH = _Bearer()
 
 # Direct DB connection for user/session seeding + cleanup
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")

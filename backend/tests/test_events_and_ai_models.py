@@ -8,7 +8,23 @@ from dotenv import load_dotenv
 
 load_dotenv("/app/frontend/.env")
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
-ADMIN = ("connectflareonix@gmail.com", "Flareonix@admin02")
+from dotenv import load_dotenv  # noqa: E402
+load_dotenv("/app/backend/.env")
+
+
+class _Bearer(requests.auth.AuthBase):
+    """Admin auth is POST /api/admin/login + Bearer token (HTTP Basic removed)."""
+    _tok = None
+
+    def __call__(self, r):
+        if not _Bearer._tok:
+            _Bearer._tok = requests.post(f"{BASE_URL}/api/admin/login", json={
+                "email": os.environ["ADMIN_EMAIL"], "password": os.environ["ADMIN_PASSWORD"]}).json()["token"]
+        r.headers["Authorization"] = f"Bearer {_Bearer._tok}"
+        return r
+
+
+ADMIN = _Bearer()
 QA_COOKIE = {"session_token": "qa_session_token_123"}
 
 
