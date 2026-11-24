@@ -752,8 +752,9 @@ async def _startup_init():
         await init_db(db)
         await ensure_admin_credentials(db)
         logging.info("DB initialised")
-    except Exception as e:
-        logging.error(f"DB init failed: {e}")
+    except Exception:
+        logging.exception("Backend startup initialization failed")
+        raise
 
 cors_origins = [
     origin.strip().rstrip("/")
