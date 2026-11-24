@@ -1,9 +1,9 @@
-# Flareonix Test Credentials
+# Flareonix Test Setup
 
 ## Admin Panel (HTTP Basic Auth)
 - URL: `/admin`
-- Email: `connectflareonix@gmail.com`
-- Password: `Flareonix@admin02`
+- Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the local test environment or hosting environment.
+- Never commit credential values, tokens, or `.env` files to source control.
 
 ## User Authentication
 - Strategy: Emergent Google OAuth
