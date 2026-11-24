@@ -1,17 +1,15 @@
-/* Tiny HTTP Basic auth helper for admin. Stores credentials in sessionStorage. */
-const KEY = 'flareonix_admin_creds';
+/* Admin session helper: keeps a short-lived admin token (never the password) in sessionStorage. */
+const KEY = 'flareonix_admin_token';
 
-export const adminSetCreds = (email, password) => {
-  sessionStorage.setItem(KEY, JSON.stringify({ email, password }));
-};
+sessionStorage.removeItem('flareonix_admin_creds');
 
-export const adminGetCreds = () => {
-  try { return JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch { return null; }
-};
+export const adminSetToken = (token) => sessionStorage.setItem(KEY, token);
+
+export const adminGetToken = () => sessionStorage.getItem(KEY);
 
 export const adminClear = () => sessionStorage.removeItem(KEY);
 
 export const adminAuthConfig = () => {
-  const c = adminGetCreds();
-  return c ? { auth: { username: c.email, password: c.password } } : {};
+  const t = adminGetToken();
+  return { withCredentials: true, headers: t ? { Authorization: `Bearer ${t}` } : {} };
 };
