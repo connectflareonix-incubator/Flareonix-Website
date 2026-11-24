@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { API } from '@/config/constants';
-import { adminClear, adminAuthConfig } from './adminAuth';
+import { adminAuthConfig } from './adminAuth';
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -35,10 +35,14 @@ const AdminLayout = ({ children }) => {
     return () => { if (c) c.style.display = ''; };
   }, []);
 
-  const logout = () => {
-    axios.post(`${API}/admin/logout`, {}, adminAuthConfig()).catch(() => {});
-    adminClear();
-    nav('/admin');
+  const logout = async () => {
+    try {
+      await axios.post(`${API}/admin/logout`, {}, adminAuthConfig());
+    } catch (error) {
+      console.error('Admin logout failed:', error);
+    } finally {
+      nav('/admin', { replace: true });
+    }
   };
 
   return (
