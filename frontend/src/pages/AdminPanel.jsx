@@ -4,13 +4,11 @@ import axios from 'axios';
 import { API } from '@/config/constants';
 import { adminGetToken, adminClear, adminAuthConfig } from '@/components/admin/adminAuth';
 import { LoginScreen } from '@/components/admin/LoginScreen';
-import Policies from '@/components/admin/sections/Policies';
 import AdminLayout from '@/components/admin/AdminLayout';
 import Dashboard from '@/components/admin/sections/Dashboard';
 import Blog from '@/components/admin/sections/Blog';
 import Team from '@/components/admin/sections/Team';
 import Projects from '@/components/admin/sections/Projects';
-import Events from '@/components/admin/sections/Events';
 import Collaborations from '@/components/admin/sections/Collaborations';
 import Inbox from '@/components/admin/sections/Inbox';
 import Feedback from '@/components/admin/sections/Feedback';
@@ -36,14 +34,12 @@ const AdminPanel = () => {
         <Route path="blog" element={<Blog />} />
         <Route path="team" element={<Team />} />
         <Route path="projects" element={<Projects />} />
-        <Route path="events" element={<Events />} />
         <Route path="collaborations" element={<Collaborations />} />
         <Route path="inbox" element={<Inbox />} />
         <Route path="feedback" element={<Feedback />} />
         <Route path="users" element={<Users />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="policies" element={<Policies />} />
       </Routes>
     </AdminLayout>
   );
