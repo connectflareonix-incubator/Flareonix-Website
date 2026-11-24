@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { API } from '@/config/constants';
-import { adminSetToken } from './adminAuth';
 import { apiError } from './apiError';
 import { ForgotPassword } from './ForgotPassword';
 import { AuthCard, authInput, authButton, authButtonStyle } from './AuthCard';
@@ -19,8 +18,7 @@ export const LoginScreen = ({ onSuccess }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const r = await axios.post(`${API}/admin/login`, { email, password: pwd }, { withCredentials: true });
-      adminSetToken(r.data.token);
+      await axios.post(`${API}/admin/login`, { email, password: pwd }, { withCredentials: true });
       toast.success('Signed in');
       onSuccess();
     } catch (err) {
