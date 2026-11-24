@@ -35,7 +35,7 @@
     "backend": "100% (26/26 after fix)",
     "frontend": "100% (all checked flows pass; no blocking console errors — 401s are expected /auth/me polls when not logged in)"
   },
-  "test_credentials": "Admin HTTP Basic Auth: connectflareonix@gmail.com / Flareonix@admin02. Test user is seeded directly into MongoDB by the pytest fixture and cleaned up at end.",
+  "test_credentials": "Admin HTTP Basic Auth: credentials supplied through environment variables (redacted). Test user is seeded directly into MongoDB by the pytest fixture and cleaned up at end.",
   "seed_data_creation": "Tests create TEST_-prefixed blog posts, team members, projects, collaborations, contact submissions, testimonials, announcements, and a test user + session via direct MongoDB insert. All cleaned up by test_zz_cleanup and individual test teardowns.",
   "retest_needed": false,
   "main_agent_can_self_test": true,
