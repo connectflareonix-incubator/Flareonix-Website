@@ -7,7 +7,6 @@ import uuid
 import time
 import pytest
 import requests
-from requests.auth import HTTPBasicAuth
 from pymongo import MongoClient
 from datetime import datetime, timezone, timedelta
 
@@ -15,7 +14,17 @@ BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://flareonix-rise.previ
 API = f"{BASE_URL}/api"
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
-AUTH = HTTPBasicAuth(ADMIN_EMAIL, ADMIN_PASSWORD) if ADMIN_EMAIL and ADMIN_PASSWORD else None
+RUN_ADMIN_INTEGRATION_TESTS = os.environ.get("RUN_ADMIN_INTEGRATION_TESTS") == "1"
+AUTH = {}
+if RUN_ADMIN_INTEGRATION_TESTS and ADMIN_EMAIL and ADMIN_PASSWORD:
+    # Explicit opt-in only: these integration tests mutate MongoDB content.
+    _login = requests.post(
+        f"{API}/admin/login",
+        json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+        timeout=15,
+    )
+    _login.raise_for_status()
+    AUTH = {"Authorization": f"Bearer {_login.json()['token']}"} 
 
 # Direct DB connection for user/session seeding + cleanup
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
@@ -129,14 +138,14 @@ class TestPublicEndpoints:
 
 
 # ---------- ADMIN AUTH ----------
-@pytest.mark.skipif(not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set ADMIN_EMAIL and ADMIN_PASSWORD to run admin integration tests")
+@pytest.mark.skipif(not RUN_ADMIN_INTEGRATION_TESTS or not ADMIN_EMAIL or not ADMIN_PASSWORD, reason="Set RUN_ADMIN_INTEGRATION_TESTS=1 and admin credentials to run against a dedicated test database")
 class TestAdminAuth:
     def test_admin_endpoint_requires_auth(self):
         r = requests.get(f"{API}/admin/metrics/overview")
         assert r.status_code == 401
 
     def test_admin_metrics_overview(self):
-        r = requests.get(f"{API}/admin/metrics/overview", auth=AUTH)
+        r = requests.get(f"{API}/admin/metrics/overview", headers=AUTH)
         assert r.status_code == 200
         d = r.json()
         for k in ["total_users", "new_users_today", "new_users_week", "new_users_month",
