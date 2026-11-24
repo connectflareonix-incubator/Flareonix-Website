@@ -27,8 +27,7 @@ Build a complete multi-page, high-performance website for Flareonix — India's 
 ## Authentication
 - **User auth:** Emergent Google OAuth (`/api/auth/session`)
 - **Admin auth:** HTTP Basic Auth (kept as-is per user choice)
-  - Email: `connectflareonix@gmail.com`
-  - Password: `Flareonix@admin02`
+  - Credentials are supplied through server-side `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables; never store them in source control.
 
 ## Backend Stack
 - FastAPI + MongoDB (motor async)
