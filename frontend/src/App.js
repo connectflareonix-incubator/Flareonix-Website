@@ -26,11 +26,17 @@ import TestimonialsPage from "@/pages/TestimonialsPage";
 import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import GrowthConsultationPage from "@/pages/GrowthConsultationPage";
+import EventsPage from "@/pages/EventsPage";
+import EventDetailPage from "@/pages/EventDetailPage";
+import PolicyPage from "@/pages/PolicyPage";
+import PoliciesPage from "@/pages/PoliciesPage";
+import AdminResetPasswordPage from "@/pages/AdminResetPasswordPage";
 
 function AppRouter() {
   const location = useLocation();
   
-  if (location.pathname === '/auth/callback') {
+  // Check URL fragment for session_id - must be synchronous
+  if (location.hash?.includes('session_id=')) {
     return <AuthCallback />;
   }
 
@@ -47,6 +53,8 @@ function AppRouter() {
       <Route path="/ai-tools" element={<AIToolsPage />} />
       <Route path="/blog" element={<BlogPage />} />
       <Route path="/blog/:slug" element={<BlogPostPage />} />
+      <Route path="/events" element={<EventsPage />} />
+      <Route path="/events/:id" element={<EventDetailPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/faq" element={<FAQPage />} />
       <Route path="/login" element={<LoginPage />} />
@@ -59,6 +67,12 @@ function AppRouter() {
           </ProtectedRoute>
         } 
       />
+      <Route path="/policies" element={<PoliciesPage />} />
+      <Route path="/policies/:slug" element={<PolicyPage />} />
+      <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
+      <Route path="/terms" element={<PolicyPage slug="terms" />} />
+      <Route path="/refund-policy" element={<PolicyPage slug="refunds" />} />
+      <Route path="/admin/reset-password" element={<AdminResetPasswordPage />} />
       <Route path="/admin/*" element={<AdminPanel />} />
     </Routes>
   );
