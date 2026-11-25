@@ -156,7 +156,7 @@ def build_admin_auth(db):
         await db.login_attempts.delete_many({"identifier": {"$in": [ident, glob]}})
         token = jwt.encode({"sub": ADMIN_EMAIL, "type": "admin", "ver": doc.get("token_version", 1),
                             "exp": _now() + timedelta(hours=TOKEN_HOURS)}, JWT_SECRET, algorithm="HS256")
-        response.set_cookie(COOKIE, token, httponly=True, secure=True, samesite="none",
+        response.set_cookie(COOKIE, token, httponly=True, secure=True, samesite="lax",
                             max_age=TOKEN_HOURS * 3600, path="/")
         await audit("login_success", request)
         return {"success": True, "email": ADMIN_EMAIL, "expires_in": TOKEN_HOURS * 3600}
@@ -172,7 +172,7 @@ def build_admin_auth(db):
         except HTTPException:
             # Logout remains idempotent for expired or already-invalid sessions.
             pass
-        response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="none")
+        response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="lax")
         return {"success": True}
 
     @router.get("/verify")
@@ -223,7 +223,7 @@ def build_admin_auth(db):
         )
         await db.admin_reset_tokens.update_many({"used": False}, {"$set": {"used": True}})
         await db.login_attempts.delete_many({})
-        response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="none")
+        response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="lax")
         await audit("password_reset", request)
         notice = ("<p>The Flareonix admin password was just changed using a reset link, and all admin "
                   "sessions were signed out.</p><p>If this was not you, request a new reset link straight away.</p>")
