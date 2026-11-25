@@ -24,7 +24,7 @@ Existing backend settings `MONGO_URL` and `DB_NAME` are also required.
 - Password reset links are single-use and expire after 30 minutes.
 - Password reset invalidates all previously issued admin sessions.
 - Logout revokes the active admin token and clears the HttpOnly cookie.
-- The backend sets the session as an `HttpOnly`, `Secure`, `SameSite=None` cookie. The frontend never reads or stores the JWT in JavaScript storage.
+- The backend sets the session as an `HttpOnly`, `Secure`, `SameSite=Lax` cookie when the frontend and API use the same site (for example, `https://flareonix.in` and `https://api.flareonix.in`). Keep credentialed CORS enabled for the exact frontend origin.. The frontend never reads or stores the JWT in JavaScript storage.
 - Passwords must be at least 12 characters, include letters and numbers, and remain within bcrypt's 72-byte input limit.
 
 ## Deployment caution
