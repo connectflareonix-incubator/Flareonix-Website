@@ -44,11 +44,39 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, [checkAuth]);
 
-  const login = () => {
-    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-    const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
-    const scope = encodeURIComponent('openid email profile');
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline`;
+  const login = async () => {
+    try {
+      const encodeBase64Url = (bytes) => {
+        let binary = '';
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      };
+      const state = encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+      const verifier = encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+      const challenge = encodeBase64Url(new Uint8Array(digest));
+      sessionStorage.setItem('flareonix_oauth_state', state);
+      sessionStorage.setItem('flareonix_oauth_verifier', verifier);
+      const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+      const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
+      const scope = encodeURIComponent('openid email profile');
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: window.location.origin + '/auth/callback',
+        response_type: 'code',
+        scope: 'openid email profile',
+        access_type: 'online',
+        state,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+      });
+      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    } catch (error) {
+      console.error('Could not securely start Google sign-in:', error);
+      sessionStorage.removeItem('flareonix_oauth_state');
+      sessionStorage.removeItem('flareonix_oauth_verifier');
+      window.location.href = '/login?error=oauth_unavailable';
+    }
   };
   
   const logout = async () => {
