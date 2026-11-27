@@ -9,6 +9,8 @@ const Policies = () => {
   const [draft, setDraft] = useState(null);
   const [versions, setVersions] = useState([]);
   const [publishing, setPublishing] = useState(false);
+  const [reauthOpen, setReauthOpen] = useState(false);
+  const [reauthPassword, setReauthPassword] = useState("");
 
   const load = async () => setItems(await adminApi.listPolicies());
   useEffect(() => { load().catch(() => toast.error('Could not load policies')); }, []);
@@ -24,11 +26,11 @@ const Policies = () => {
     } catch { toast.error('Could not open policy'); }
   };
 
-  const save = async (publish) => {
+  const save = async (publish, password = "") => {
     if (!draft || !selected) return;
-    if (publish && !window.confirm('Publish this legal policy publicly? Please verify the text before continuing.')) return;
     setPublishing(true);
     try {
+      if (publish) await adminApi.reauthenticate(password);
       await adminApi.updatePolicy(selected, {
         title: draft.title,
         content: draft.content,
@@ -40,7 +42,15 @@ const Policies = () => {
       await load();
     } catch (e) {
       toast.error(e?.response?.status === 409 ? 'This policy changed elsewhere. Reload it before saving.' : 'Could not save policy');
-    } finally { setPublishing(false); }
+    } finally {
+      setPublishing(false);
+      if (publish) { setReauthPassword(""); setReauthOpen(false); }
+    }
+  };
+
+  const confirmPublish = () => {
+    if (!reauthPassword) { toast.error("Enter your admin password to publish"); return; }
+    save(true, reauthPassword);
   };
 
   const setNotice = async (show) => {
@@ -63,10 +73,27 @@ const Policies = () => {
         <div><label className="text-xs text-white/60">Policy content (plain text / Markdown)</label><Textarea rows={18} value={draft.content || ''} onChange={e => setDraft({ ...draft, content: e.target.value })} /></div>
         <div className="flex flex-wrap gap-2">
           <PrimaryButton disabled={publishing} onClick={() => save(false)}>Save draft version</PrimaryButton>
-          <PrimaryButton disabled={publishing || !draft.content?.trim()} onClick={() => save(true)}>Publish new version</PrimaryButton>
+          <PrimaryButton disabled={publishing || !draft.content?.trim()} onClick={() => { setReauthPassword(""); setReauthOpen(true); }}>Publish new version</PrimaryButton>
         </div>
         {draft.published && <label className="flex items-center gap-2 text-sm text-white/70"><input type="checkbox" checked={!!draft.show_draft_notice} onChange={e => setNotice(e.target.checked)} /> Show draft / review notice where applicable</label>}
       </Card>
+        {reauthOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="policy-reauth-title">
+          <div className="w-full max-w-md rounded-xl border border-white/15 bg-[#171717] p-5 shadow-2xl space-y-4">
+            <div>
+              <h3 id="policy-reauth-title" className="text-lg font-semibold">Confirm your identity</h3>
+              <p className="mt-1 text-sm text-white/60">Enter your current admin password to publish this legal policy. Confirmation expires after five minutes.</p>
+            </div>
+            <label className="block text-sm text-white/70" htmlFor="policy-reauth-password">Admin password</label>
+            <input id="policy-reauth-password" type="password" autoComplete="current-password" value={reauthPassword}
+              onChange={e => setReauthPassword(e.target.value)} disabled={publishing}
+              onKeyDown={e => { if (e.key === "Enter" && !publishing) confirmPublish(); }}
+              className="w-full rounded-lg border border-white/20 bg-black/30 px-3 py-2 text-white outline-none focus:border-orange-400" />
+            <div className="flex justify-end gap-2">
+              <GhostButton disabled={publishing} onClick={() => { setReauthPassword(""); setReauthOpen(false); }}>Cancel</GhostButton>
+              <PrimaryButton disabled={publishing || !reauthPassword} onClick={confirmPublish}>Confirm & publish</PrimaryButton>
+            </div>
+          </div>
+        </div>}
       <Card>
         <h3 className="font-semibold mb-3">Version history</h3>
         {versions.length ? versions.map(v => (
