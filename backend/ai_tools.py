@@ -1,14 +1,21 @@
-"""Flareonix AI Tools - Claude Sonnet 4.5 powered generators"""
+"""Flareonix AI Tools - multi-model (Claude Sonnet 5.5 / Opus 5.5, GPT 6 Luna) generators"""
 import os
+import json
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
 
-CLAUDE_MODEL = "claude-sonnet-4-5-20250929"
+MODELS = {
+    "claude-sonnet-5-5": {"provider": "anthropic", "label": "Claude Sonnet 5.5", "hint": "Balanced, great everyday writing"},
+    "claude-opus-5-5": {"provider": "anthropic", "label": "Claude Opus 5.5", "hint": "Deepest thinking, slower"},
+    "gpt-6-luna": {"provider": "openai", "label": "GPT 6 Luna", "hint": "Fastest, best for quick drafts"},
+}
+DEFAULT_MODEL = "claude-sonnet-5-5"
 
 
 def _key() -> str:
@@ -85,6 +92,7 @@ TOOL_CONFIGS = {
 class GenerateRequest(BaseModel):
     tool: str
     prompt: str = Field(..., min_length=5, max_length=2000)
+    model: str = DEFAULT_MODEL
     session_id: Optional[str] = None
 
 
@@ -96,6 +104,7 @@ class GenerationDoc(BaseModel):
     tool_name: str
     prompt: str
     response: str
+    model: str = DEFAULT_MODEL
     session_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -110,47 +119,51 @@ def build_router(db, get_current_user):
         """Public list of available tools"""
         return [{"slug": k, "name": v["name"]} for k, v in TOOL_CONFIGS.items()]
 
+    @router.get("/models")
+    async def list_models():
+        return [{"id": k, "label": v["label"], "hint": v["hint"], "default": k == DEFAULT_MODEL}
+                for k, v in MODELS.items()]
+
     @router.post("/generate")
     async def generate(req: GenerateRequest, user: dict = Depends(get_current_user)):
-        """Generate content using Claude Sonnet 4.5"""
+        """Stream generated content (SSE) from the user's chosen model."""
         cfg = TOOL_CONFIGS.get(req.tool)
         if not cfg:
             raise HTTPException(status_code=400, detail="Unknown tool")
-
+        model = MODELS.get(req.model)
+        if not model:
+            raise HTTPException(status_code=400, detail="Unknown model")
         session_id = req.session_id or f"ai_{user['user_id']}_{req.tool}_{uuid.uuid4().hex[:8]}"
+        chat = LlmChat(
+            api_key=_key(), session_id=session_id, system_message=cfg["system"],
+        ).with_model(model["provider"], req.model)
 
-        try:
-            chat = LlmChat(
-                api_key=_key(),
-                session_id=session_id,
-                system_message=cfg["system"],
-            ).with_model("anthropic", CLAUDE_MODEL)
+        def sse(payload: dict) -> str:
+            return f"data: {json.dumps(payload)}\n\n"
 
-            response_text = await chat.send_message(UserMessage(text=req.prompt))
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"AI generation failed: {str(e)[:200]}")
+        async def events():
+            parts = []
+            try:
+                async for ev in chat.stream_message(UserMessage(text=req.prompt)):
+                    if isinstance(ev, TextDelta):
+                        parts.append(ev.content)
+                        yield sse({"type": "delta", "content": ev.content})
+                    elif isinstance(ev, StreamDone):
+                        break
+            except Exception as e:
+                yield sse({"type": "error", "detail": f"AI generation failed: {str(e)[:200]}"})
+                return
+            doc = GenerationDoc(
+                user_id=user["user_id"], user_email=user["email"], tool=req.tool,
+                tool_name=cfg["name"], prompt=req.prompt, response="".join(parts),
+                model=req.model, session_id=session_id,
+            ).model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.ai_generations.insert_one(doc)
+            yield sse({"type": "done", "id": doc["id"], "model": req.model, "model_label": model["label"]})
 
-        doc = GenerationDoc(
-            user_id=user["user_id"],
-            user_email=user["email"],
-            tool=req.tool,
-            tool_name=cfg["name"],
-            prompt=req.prompt,
-            response=response_text,
-            session_id=session_id,
-        ).model_dump()
-        doc["created_at"] = doc["created_at"].isoformat()
-        await db.ai_generations.insert_one(doc)
-
-        return {
-            "id": doc["id"],
-            "tool": req.tool,
-            "tool_name": cfg["name"],
-            "prompt": req.prompt,
-            "response": response_text,
-            "session_id": session_id,
-            "created_at": doc["created_at"],
-        }
+        return StreamingResponse(events(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     @router.get("/history")
     async def history(user: dict = Depends(get_current_user)):
