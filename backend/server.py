@@ -274,7 +274,6 @@ async def exchange_session(request: Request, response: Response):
     session_doc = {
         "user_id": user_id,
         # Never persist the bearer credential itself; retain only a SHA-256 lookup hash.
-        "session_token": f"stored_{uuid.uuid4().hex}",
         "session_token_hash": hashlib.sha256(session_token.encode("utf-8")).hexdigest(),
         "expires_at": expires_at.isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -361,7 +360,6 @@ async def google_callback(request: Request, response: Response):
     await db.user_sessions.insert_one({
         "user_id": user_id,
         # Store a one-way lookup hash, never the browser's bearer token.
-        "session_token": f"stored_{uuid.uuid4().hex}",
         "session_token_hash": hashlib.sha256(session_token.encode("utf-8")).hexdigest(),
         "expires_at": expires_at.isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat()
