@@ -741,6 +741,10 @@ app.include_router(admin_auth_router)
 from content_routes import build_content_router
 app.include_router(build_content_router(db, verify_admin, get_current_user))
 
+# Versioned legal policies are isolated from ordinary editable site content.
+from policy_routes import build_policy_router
+app.include_router(build_policy_router(db, verify_admin))
+
 
 # DB init on startup
 from db_init import init_db
