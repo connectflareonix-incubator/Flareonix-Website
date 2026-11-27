@@ -15,19 +15,26 @@ const AuthCallback = () => {
     const processAuth = async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
+      const returnedState = params.get('state');
+      const expectedState = sessionStorage.getItem('flareonix_oauth_state');
+      const codeVerifier = sessionStorage.getItem('flareonix_oauth_verifier');
+      sessionStorage.removeItem('flareonix_oauth_state');
+      sessionStorage.removeItem('flareonix_oauth_verifier');
 
-      if (!code) {
-        navigate('/login');
+      if (!code || !returnedState || !expectedState || returnedState !== expectedState || !codeVerifier) {
+        navigate('/login?error=oauth_state_invalid', { replace: true });
         return;
       }
+      window.history.replaceState(null, '', '/auth/callback');
 
       try {
         const response = await fetch(`${API}/auth/google/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ 
-            code: code,
+          body: JSON.stringify({
+            code,
+            code_verifier: codeVerifier,
             redirect_uri: window.location.origin + '/auth/callback'
           })
         });
