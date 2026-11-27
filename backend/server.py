@@ -765,6 +765,8 @@ async def root():
 # Include the router in the main app
 app.include_router(api_router)
 app.include_router(admin_auth_router)
+from events_routes import build_events_router
+app.include_router(build_events_router(db, verify_admin, get_current_user))
 
 # AI Tools router (Claude Sonnet 4.5 via Emergent LLM Key)
 
