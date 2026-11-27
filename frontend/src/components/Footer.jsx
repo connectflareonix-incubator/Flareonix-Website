@@ -125,6 +125,16 @@ const Footer = () => {
           </div>
         </div>
 
+        {/* Legal */}
+        <div className="flex flex-wrap gap-x-5 gap-y-2 pb-6 text-xs text-muted-foreground">
+          <Link to="/policies/privacy-policy" className="hover:text-primary">Privacy Policy</Link>
+          <Link to="/policies/terms-of-use" className="hover:text-primary">Terms of Use</Link>
+          <Link to="/policies/cookie-policy" className="hover:text-primary">Cookie Policy</Link>
+          <Link to="/policies/refund-cancellation" className="hover:text-primary">Refund & Cancellation</Link>
+          <Link to="/policies/grievance-redressal" className="hover:text-primary">Grievance Redressal</Link>
+          <Link to="/policies/community-guidelines" className="hover:text-primary">Community Guidelines</Link>
+        </div>
+
         {/* Bottom Bar */}
         <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-white/5">
           <p className="text-muted-foreground text-sm mb-4 md:mb-0">
