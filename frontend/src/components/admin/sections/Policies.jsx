@@ -29,6 +29,7 @@ const Policies = () => {
   const save = async (publish, password = "") => {
     if (!draft || !selected) return;
     setPublishing(true);
+    let updateCompleted = false;
     try {
       if (publish) await adminApi.reauthenticate(password);
       await adminApi.updatePolicy(selected, {
@@ -37,6 +38,7 @@ const Policies = () => {
         expected_version: draft.version || 0,
         publish,
       });
+      updateCompleted = true;
       toast.success(publish ? 'New policy version published' : 'Draft version saved');
       await open(selected);
       await load();
@@ -51,7 +53,10 @@ const Policies = () => {
       );
     } finally {
       setPublishing(false);
-      if (publish) { setReauthPassword(""); setReauthOpen(false); }
+      if (publish) {
+        setReauthPassword("");
+        if (updateCompleted) setReauthOpen(false);
+      }
     }
   };
 
