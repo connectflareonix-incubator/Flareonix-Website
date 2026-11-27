@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Users as TeamIcon, Briefcase, Handshake, Inbox,
   Star, UserCog, Megaphone, Settings, LogOut, Menu, X, CalendarDays, ScrollText,
+  ExternalLink,
 } from 'lucide-react';
 import axios from 'axios';
 import { API } from '@/config/constants';
@@ -90,7 +91,17 @@ const AdminLayout = ({ children }) => {
             );
           })}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10">
+        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10 space-y-1">
+          <a
+            href="https://flareonix.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/70 hover:bg-white/5 hover:text-white"
+            data-testid="admin-view-website"
+          >
+            <ExternalLink className="h-4 w-4" /> View Live Website
+          </a>
           <button
             onClick={logout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-400 hover:bg-red-500/10"
