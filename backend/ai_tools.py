@@ -2,7 +2,8 @@
 import os
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from pymongo import ReturnDocument
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
@@ -10,12 +11,44 @@ from pydantic import BaseModel, Field
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
 
+# Model IDs below are taken from the published Emergent SDK examples.
+# Keep the catalogue deliberately small and avoid advertising unverified/fictitious IDs.
 MODELS = {
-    "claude-sonnet-5-5": {"provider": "anthropic", "label": "Claude Sonnet 5.5", "hint": "Balanced, great everyday writing"},
-    "claude-opus-5-5": {"provider": "anthropic", "label": "Claude Opus 5.5", "hint": "Deepest thinking, slower"},
-    "gpt-6-luna": {"provider": "openai", "label": "GPT 6 Luna", "hint": "Fastest, best for quick drafts"},
+    "claude-sonnet-4-6": {"provider": "anthropic", "label": "Claude Sonnet 4.6", "hint": "Balanced quality for everyday work"},
+    "gpt-4o-mini": {"provider": "openai", "label": "GPT-4o mini", "hint": "Lower-cost option for quick drafts"},
 }
-DEFAULT_MODEL = "claude-sonnet-5-5"
+DEFAULT_MODEL = "gpt-4o-mini"
+
+# Conservative launch guardrails. These cap request volume, not a guaranteed
+# currency spend; actual billing remains token/model dependent.
+USER_HOURLY_LIMIT = 3
+USER_DAILY_LIMIT = 10
+GLOBAL_DAILY_LIMIT = 50
+MAX_OUTPUT_TOKENS = 1024
+
+async def _reserve_quota(db, user_id: str):
+    now = datetime.now(timezone.utc)
+    hour_key = now.strftime("%Y%m%d%H")
+    day_key = now.strftime("%Y%m%d")
+    windows = [
+        ("user_hour", f"{user_id}:{hour_key}", USER_HOURLY_LIMIT),
+        ("user_day", f"{user_id}:{day_key}", USER_DAILY_LIMIT),
+        ("global_day", day_key, GLOBAL_DAILY_LIMIT),
+    ]
+    for scope, key, limit in windows:
+        doc = await db.ai_usage_limits.find_one_and_update(
+            {"scope": scope, "key": key},
+            {"$inc": {"count": 1},
+             "$setOnInsert": {"created_at": now, "expires_at": now + timedelta(days=3)}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        if doc["count"] > limit:
+            raise HTTPException(
+                status_code=429,
+                detail="AI usage limit reached. Please try again later.",
+                headers={"Retry-After": "3600" if scope == "user_hour" else "86400"},
+            )
 
 
 def _key() -> str:
@@ -133,10 +166,12 @@ def build_router(db, get_current_user):
         model = MODELS.get(req.model)
         if not model:
             raise HTTPException(status_code=400, detail="Unknown model")
-        session_id = req.session_id or f"ai_{user['user_id']}_{req.tool}_{uuid.uuid4().hex[:8]}"
+        # Reserve quotas before contacting the paid model provider.
+        await _reserve_quota(db, user["user_id"])
+        session_id = f"ai_{user['user_id']}_{req.tool}_{uuid.uuid4().hex[:8]}"
         chat = LlmChat(
             api_key=_key(), session_id=session_id, system_message=cfg["system"],
-        ).with_model(model["provider"], req.model)
+        ).with_model(model["provider"], req.model).with_params(max_tokens=MAX_OUTPUT_TOKENS)
 
         def sse(payload: dict) -> str:
             return f"data: {json.dumps(payload)}\n\n"
