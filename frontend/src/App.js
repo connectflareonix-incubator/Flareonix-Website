@@ -27,6 +27,7 @@ import TestimonialsPage from "@/pages/TestimonialsPage";
 import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import GrowthConsultationPage from "@/pages/GrowthConsultationPage";
+import PolicyPage from "@/pages/PolicyPage";
 
 function AppRouter() {
   const location = useLocation();
@@ -49,6 +50,7 @@ function AppRouter() {
       <Route path="/blog" element={<BlogPage />} />
       <Route path="/blog/:slug" element={<BlogPostPage />} />
       <Route path="/contact" element={<ContactPage />} />
+      <Route path="/policies/:slug" element={<PolicyPage />} />
       <Route path="/faq" element={<FAQPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/testimonials" element={<TestimonialsPage />} />
