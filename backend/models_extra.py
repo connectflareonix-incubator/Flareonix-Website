@@ -2,7 +2,7 @@
 testimonials/case studies, announcements, site settings, webhooks.
 Kept small to stay readable."""
 from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 import uuid
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -208,6 +208,82 @@ class AnnouncementInput(BaseModel):
     cta_url: Optional[str] = None
     is_active: bool = False
     is_dismissible: bool = True
+
+
+# ---------- Events ----------
+class Event(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    date: str = "To be announced"
+    venue: Optional[str] = ""
+    theme: Optional[str] = ""
+    description: str = ""
+    short_description: Optional[str] = ""
+    cover_image_url: Optional[str] = None
+    guests: List[str] = []
+    highlights: List[str] = []
+    registration_link: Optional[str] = None
+    registration_button_text: Optional[str] = "Register Now"
+    capacity: int = 0
+    status: str = "upcoming"  # upcoming|ongoing|past
+    slug: Optional[str] = None
+    published: bool = False
+    display_order: int = 0
+    created_at: datetime = Field(default_factory=_now)
+
+
+class EventInput(BaseModel):
+    title: str
+    date: str = "To be announced"
+    venue: Optional[str] = ""
+    theme: Optional[str] = ""
+    description: str = ""
+    short_description: Optional[str] = ""
+    cover_image_url: Optional[str] = None
+    guests: List[str] = []
+    highlights: List[str] = []
+    registration_link: Optional[str] = None
+    registration_button_text: Optional[str] = "Register Now"
+    capacity: int = Field(0, ge=0, le=100000)
+    status: Literal["upcoming", "ongoing", "past"] = "upcoming"
+    slug: Optional[str] = Field(None, max_length=80)
+    published: bool = False
+    display_order: int = 0
+
+
+class EventComment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    event_id: str
+    parent_id: Optional[str] = None
+    user_id: str
+    user_name: str
+    user_email: str
+    user_picture: Optional[str] = None
+    content: str
+    created_at: datetime = Field(default_factory=_now)
+
+
+class EventCommentCreate(BaseModel):
+    content: str = Field(..., min_length=2, max_length=2000)
+    parent_id: Optional[str] = None
+
+
+class WaitlistEntry(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    event_id: str
+    name: Optional[str] = ""
+    email: str
+    created_at: datetime = Field(default_factory=_now)
+
+
+class WaitlistEntryCreate(BaseModel):
+    name: Optional[str] = ""
+    email: str = Field(..., min_length=3, max_length=200)
+
+
 
 
 # ---------- Settings ----------
