@@ -78,6 +78,8 @@ async def init_db(db):
     await db.webhook_endpoints.create_index("name", unique=True)
     await db.ai_generations.create_index("user_id")
     await db.ai_generations.create_index("created_at")
+    await db.ai_usage_limits.create_index([("scope", 1), ("key", 1)], unique=True)
+    await db.ai_usage_limits.create_index("expires_at", expireAfterSeconds=0)
 
     # Seed site settings (upsert defaults — won't overwrite existing values)
     for k, v in DEFAULT_SETTINGS.items():
