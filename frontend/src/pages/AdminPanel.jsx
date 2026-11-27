@@ -15,6 +15,7 @@ import Feedback from '@/components/admin/sections/Feedback';
 import Users from '@/components/admin/sections/Users';
 import Announcements from '@/components/admin/sections/Announcements';
 import Settings from '@/components/admin/sections/Settings';
+import Policies from '@/components/admin/sections/Policies';
 
 const AdminPanel = () => {
   const [authed, setAuthed] = useState(false);
@@ -47,6 +48,7 @@ const AdminPanel = () => {
         <Route path="users" element={<Users />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="policies" element={<Policies />} />
       </Routes>
     </AdminLayout>
   );
