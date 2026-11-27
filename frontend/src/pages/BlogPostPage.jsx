@@ -18,10 +18,10 @@ const BlogPostPage = () => {
   const [post, setPost] = useState(null);
 
   const load = () => {
-    axios.get(`${API}/blog/posts/${slug}`).then((r) => setPost(r.data))
+    axios.get(`${API}/blog/posts/${slug}`, { withCredentials: true }).then((r) => setPost(r.data))
       .catch(() => { toast.error('Post not found'); nav('/blog'); });
   };
-  useEffect(() => { load(); }, [slug]); // eslint-disable-line
+  useEffect(() => { load(); }, [slug, user?.user_id]); // eslint-disable-line
 
   if (!post) {
     return (
