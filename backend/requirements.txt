@@ -32,3 +32,6 @@ tzdata==2025.3
 requests==2.32.5
 charset-normalizer==3.4.4
 urllib3==2.6.3
+
+--extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+emergentintegrations==0.2.2
