@@ -1,4 +1,4 @@
-""""Transactional email via Resend. Bodies come from server-side templates only."""
+"""Transactional email via Resend. Bodies come from server-side templates only."""
 import os
 import re
 import ipaddress
@@ -21,7 +21,7 @@ _CRED_ASK = ("reply with your password", "reply with the code", "send your passw
              "send us your password", "enter your password below", "confirm your card number",
              "your full card number", "seed phrase", "recovery phrase", "verify your card",
              "social security number", "confirm your bank details")
-_HOSTISH = re.compile(r"\\b(?:https?://)?((?:[a-z0-9-]+\\.)+[a-z]{2,})", re.I)
+_HOSTISH = re.compile(r"\b(?:https?://)?((?:[a-z0-9-]+\.)+[a-z]{2,})", re.I)
 
 
 def _host_ok(host: str) -> bool:
@@ -67,7 +67,7 @@ def _assert_safe_email(subject: str, html: str) -> None:
     scan.feed(html)
     if scan.tags & {"form", "input", "textarea", "select"}:
         raise ValueError("No forms or input fields in email (G2)")
-    body = f"{subject}\\n{html}".lower()
+    body = f"{subject}\n{html}".lower()
     for p in _CRED_ASK:
         if p in body:
             raise ValueError(f"Email asks the recipient for credentials: {p!r} (G2)")
@@ -116,7 +116,7 @@ async def send_email(*, to: str, subject: str, html: str, reply_to: str | None =
         resp.raise_for_status()
         message_id = resp.json().get("id")
         if not message_id:
-            logger.error("Resend accepted no message identifier in its response")
+            logger.error("Resend returned a response without a message identifier")
             raise HTTPException(status_code=502, detail="Email provider returned an invalid response")
         return message_id
     except httpx.HTTPStatusError as e:
@@ -134,4 +134,3 @@ async def send_email(*, to: str, subject: str, html: str, reply_to: str | None =
     except Exception as e:
         logger.error("Email send error: %s", type(e).__name__)
         raise HTTPException(status_code=500, detail="Failed to send email")
-"
