@@ -48,7 +48,9 @@ export const SPARK_COLORS = ["#FF6B00", "#FF8C00", "#FFB300", "#CC2200", "#FF450
 
 // API
 export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-export const API = `${BACKEND_URL}/api`;
+// Preview admin traffic stays same-origin so Safari accepts the HttpOnly session cookie.
+const IS_VERCEL_PREVIEW = typeof window !== "undefined" && window.location.hostname.endsWith(".vercel.app");
+export const API = IS_VERCEL_PREVIEW ? "/api" : `${BACKEND_URL}/api`;
 
 // Nav
 export const NAV_LINKS = [
