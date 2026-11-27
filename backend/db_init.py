@@ -1,6 +1,7 @@
 """Database initialiser: creates indexes and seeds default site_settings,
 team members, projects, and webhook placeholder. Idempotent."""
 from datetime import datetime, timezone
+import hashlib
 
 
 def _now():
@@ -33,8 +34,24 @@ DEFAULT_SETTINGS = {
 async def init_db(db):
     # Indexes
     await db.users.create_index("email", unique=True, sparse=True)
-    await db.user_sessions.create_index("session_token", unique=True)
+    # Migrate from plaintext bearer-token storage to one-way SHA-256 hashes.
+    existing_indexes = await db.user_sessions.index_information()
+    old_token_index = existing_indexes.get("session_token_1")
+    if old_token_index and not old_token_index.get("sparse", False):
+        await db.user_sessions.drop_index("session_token_1")
+    await db.user_sessions.create_index("session_token", unique=True, sparse=True)
     await db.user_sessions.create_index("session_token_hash", unique=True, sparse=True)
+    async for legacy_session in db.user_sessions.find({
+        "session_token": {"$type": "string"},
+        "session_token_hash": {"$exists": False},
+    }):
+        raw_token = legacy_session.get("session_token")
+        if raw_token:
+            await db.user_sessions.update_one(
+                {"_id": legacy_session["_id"]},
+                {"$set": {"session_token_hash": hashlib.sha256(raw_token.encode("utf-8")).hexdigest()},
+                 "$unset": {"session_token": ""}},
+            )
     await db.blog_posts.create_index("slug", unique=True)
     await db.blog_posts.create_index("status")
     await db.blog_posts.create_index("category")
