@@ -58,7 +58,6 @@ export const AuthProvider = ({ children }) => {
       sessionStorage.setItem('flareonix_oauth_state', state);
       sessionStorage.setItem('flareonix_oauth_verifier', verifier);
       const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-      const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
       const scope = encodeURIComponent('openid email profile');
       const params = new URLSearchParams({
         client_id: clientId,
