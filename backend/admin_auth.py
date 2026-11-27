@@ -10,7 +10,7 @@ from html import escape
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from email_service import send_email
