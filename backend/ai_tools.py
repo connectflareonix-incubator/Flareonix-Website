@@ -2,8 +2,9 @@
 import os
 import json
 import uuid
+import logging
 from datetime import datetime, timezone, timedelta
-from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
@@ -26,6 +27,7 @@ GLOBAL_DAILY_LIMIT = 50
 MAX_OUTPUT_TOKENS = 1024
 
 async def _reserve_quota(db, user_id: str):
+    """Atomically reserve all quota buckets; roll back earlier reservations on failure."""
     now = datetime.now(timezone.utc)
     hour_key = now.strftime("%Y%m%d%H")
     day_key = now.strftime("%Y%m%d")
@@ -34,20 +36,50 @@ async def _reserve_quota(db, user_id: str):
         ("user_day", f"{user_id}:{day_key}", USER_DAILY_LIMIT),
         ("global_day", day_key, GLOBAL_DAILY_LIMIT),
     ]
-    for scope, key, limit in windows:
-        doc = await db.ai_usage_limits.find_one_and_update(
-            {"scope": scope, "key": key},
-            {"$inc": {"count": 1},
-             "$setOnInsert": {"created_at": now, "expires_at": now + timedelta(days=3)}},
-            upsert=True,
-            return_document=ReturnDocument.AFTER,
+    reserved = []
+
+    async def reserve_one(scope: str, key: str, limit: int) -> bool:
+        selector = {"scope": scope, "key": key, "count": {"$lt": limit}}
+        updated = await db.ai_usage_limits.find_one_and_update(
+            selector, {"$inc": {"count": 1}}
         )
-        if doc["count"] > limit:
-            raise HTTPException(
-                status_code=429,
-                detail="AI usage limit reached. Please try again later.",
-                headers={"Retry-After": "3600" if scope == "user_hour" else "86400"},
+        if updated is not None:
+            return True
+
+        # First request in this window. Unique (scope, key) index resolves races.
+        try:
+            await db.ai_usage_limits.insert_one({
+                "scope": scope,
+                "key": key,
+                "count": 1,
+                "created_at": now,
+                "expires_at": now + timedelta(days=3),
+            })
+            return True
+        except DuplicateKeyError:
+            # Another request created the bucket concurrently; try its capped increment.
+            updated = await db.ai_usage_limits.find_one_and_update(
+                selector, {"$inc": {"count": 1}}
             )
+            return updated is not None
+
+    try:
+        for scope, key, limit in windows:
+            if not await reserve_one(scope, key, limit):
+                raise HTTPException(
+                    status_code=429,
+                    detail="AI usage limit reached. Please try again later.",
+                    headers={"Retry-After": "3600" if scope == "user_hour" else "86400"},
+                )
+            reserved.append((scope, key))
+    except Exception:
+        # Undo any earlier buckets if a later bucket rejected or failed.
+        for scope, key in reversed(reserved):
+            await db.ai_usage_limits.update_one(
+                {"scope": scope, "key": key, "count": {"$gt": 0}},
+                {"$inc": {"count": -1}},
+            )
+        raise
 
 
 def _key() -> str:
@@ -165,11 +197,13 @@ def build_router(db, get_current_user):
         model = MODELS.get(req.model)
         if not model:
             raise HTTPException(status_code=400, detail="Unknown model")
+        # Fail closed before reserving quota if the provider key is missing.
+        api_key = _key()
         # Reserve quotas before contacting the paid model provider.
         await _reserve_quota(db, user["user_id"])
         session_id = f"ai_{user['user_id']}_{req.tool}_{uuid.uuid4().hex[:8]}"
         chat = LlmChat(
-            api_key=_key(), session_id=session_id, system_message=cfg["system"],
+            api_key=api_key, session_id=session_id, system_message=cfg["system"],
         ).with_model(model["provider"], req.model).with_params(max_tokens=MAX_OUTPUT_TOKENS)
 
         def sse(payload: dict) -> str:
@@ -184,8 +218,9 @@ def build_router(db, get_current_user):
                         yield sse({"type": "delta", "content": ev.content})
                     elif isinstance(ev, StreamDone):
                         break
-            except Exception as e:
-                yield sse({"type": "error", "detail": f"AI generation failed: {str(e)[:200]}"})
+            except Exception:
+                logging.exception("AI provider generation failed for user_id=%s tool=%s", user["user_id"], req.tool)
+                yield sse({"type": "error", "detail": "AI generation is temporarily unavailable. Please try again later."})
                 return
             doc = GenerationDoc(
                 user_id=user["user_id"], user_email=user["email"], tool=req.tool,
