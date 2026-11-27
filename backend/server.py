@@ -295,16 +295,22 @@ async def google_callback(request: Request, response: Response):
     """Handle Google OAuth callback"""
     body = await request.json()
     code = body.get("code")
+    code_verifier = body.get("code_verifier")
     redirect_uri = body.get("redirect_uri")
-    
+
     if not code:
         raise HTTPException(status_code=400, detail="code required")
-    
-    async with httpx.AsyncClient() as client:
+    if not isinstance(code_verifier, str) or not (43 <= len(code_verifier) <= 128):
+        raise HTTPException(status_code=400, detail="Valid PKCE code_verifier required")
+    if not isinstance(redirect_uri, str) or not redirect_uri.startswith("https://") or not redirect_uri.endswith("/auth/callback"):
+        raise HTTPException(status_code=400, detail="Invalid OAuth redirect URI")
+
+    async with httpx.AsyncClient(timeout=20) as client:
         token_response = await client.post(
             "https://oauth2.googleapis.com/token",
             data={
                 "code": code,
+                "code_verifier": code_verifier,
                 "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
                 "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
                 "redirect_uri": redirect_uri,
@@ -322,8 +328,10 @@ async def google_callback(request: Request, response: Response):
             raise HTTPException(status_code=401, detail="Failed to get user info")
         user_info = userinfo_response.json()
     
-    email = user_info.get("email")
-    name = user_info.get("name")
+    email = (user_info.get("email") or "").strip().lower()
+    if not email or user_info.get("verified_email") is not True:
+        raise HTTPException(status_code=403, detail="Google account email must be verified")
+    name = user_info.get("name") or email.split("@")[0]
     picture = user_info.get("picture")
     existing_user = await db.users.find_one({"email": email}, {"_id": 0})
     if existing_user:
