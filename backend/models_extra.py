@@ -234,22 +234,22 @@ class Event(BaseModel):
 
 
 class EventInput(BaseModel):
-    title: str
-    date: str = "To be announced"
-    venue: Optional[str] = ""
-    theme: Optional[str] = ""
-    description: str = ""
-    short_description: Optional[str] = ""
-    cover_image_url: Optional[str] = None
-    guests: List[str] = []
-    highlights: List[str] = []
-    registration_link: Optional[str] = None
-    registration_button_text: Optional[str] = "Register Now"
+    title: str = Field(..., min_length=3, max_length=180)
+    date: str = Field("To be announced", max_length=120)
+    venue: Optional[str] = Field("", max_length=200)
+    theme: Optional[str] = Field("", max_length=200)
+    description: str = Field("", max_length=20000)
+    short_description: Optional[str] = Field("", max_length=600)
+    cover_image_url: Optional[str] = Field(None, max_length=8000000)
+    guests: List[str] = Field(default_factory=list, max_length=50)
+    highlights: List[str] = Field(default_factory=list, max_length=50)
+    registration_link: Optional[str] = Field(None, max_length=2048)
+    registration_button_text: Optional[str] = Field("Register Now", max_length=80)
     capacity: int = Field(0, ge=0, le=100000)
     status: Literal["upcoming", "ongoing", "past"] = "upcoming"
     slug: Optional[str] = Field(None, max_length=80)
     published: bool = False
-    display_order: int = 0
+    display_order: int = Field(0, ge=0, le=100000)
 
 
 class EventComment(BaseModel):
@@ -280,7 +280,7 @@ class WaitlistEntry(BaseModel):
 
 
 class WaitlistEntryCreate(BaseModel):
-    name: Optional[str] = ""
+    name: Optional[str] = Field("", max_length=120)
     email: str = Field(..., min_length=3, max_length=200)
 
 
