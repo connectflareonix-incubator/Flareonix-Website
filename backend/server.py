@@ -60,6 +60,8 @@ async def get_current_user(request: Request):
     user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if user.get("is_banned"):
+        raise HTTPException(status_code=403, detail="This account has been suspended")
     
     return user
 
@@ -239,6 +241,8 @@ async def exchange_session(request: Request, response: Response):
     existing_user = await db.users.find_one({"email": email}, {"_id": 0})
     
     if existing_user:
+        if existing_user.get("is_banned"):
+            raise HTTPException(status_code=403, detail="This account has been suspended")
         user_id = existing_user["user_id"]
         # Update user data if needed
         await db.users.update_one(
@@ -323,6 +327,8 @@ async def google_callback(request: Request, response: Response):
     picture = user_info.get("picture")
     existing_user = await db.users.find_one({"email": email}, {"_id": 0})
     if existing_user:
+        if existing_user.get("is_banned"):
+            raise HTTPException(status_code=403, detail="This account has been suspended")
         user_id = existing_user["user_id"]
         await db.users.update_one({"user_id": user_id}, {"$set": {"name": name, "picture": picture}})
     else:
@@ -440,7 +446,10 @@ async def create_review(input: ReviewCreate, user: dict = Depends(get_current_us
 @api_router.get("/reviews/approved")
 async def get_approved_reviews():
     """Get all approved reviews"""
-    reviews = await db.reviews.find({"status": "approved"}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    # Never expose internal user IDs or email addresses through the public testimonials feed.
+    reviews = await db.reviews.find(
+        {"status": "approved"}, {"_id": 0, "user_id": 0, "user_email": 0}
+    ).sort("created_at", -1).to_list(100)
     return reviews
 
 
