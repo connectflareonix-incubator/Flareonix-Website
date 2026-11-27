@@ -9,6 +9,7 @@ export const adminApi = {
   listPolicies: () => axios.get(`${API}/admin/policies`, cfg()).then(r => r.data),
   getPolicy: (slug) => axios.get(`${API}/admin/policies/${slug}`, cfg()).then(r => r.data),
   updatePolicy: (slug, b) => axios.put(`${API}/admin/policies/${slug}`, b, cfg()).then(r => r.data),
+  reauthenticate: (password) => axios.post(`${API}/admin/reauthenticate`, { password }, cfg()).then(r => r.data),
   setPolicyNotice: (slug, show) => axios.patch(`${API}/admin/policies/${slug}/notice`, { show_draft_notice: show }, cfg()).then(r => r.data),
   policyVersions: (slug) => axios.get(`${API}/admin/policies/${slug}/versions`, cfg()).then(r => r.data),
   // metrics
