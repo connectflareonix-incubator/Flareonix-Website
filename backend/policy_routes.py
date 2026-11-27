@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 
@@ -33,7 +33,7 @@ class NoticeUpdate(BaseModel):
     show_draft_notice: bool
 
 
-def build_policy_router(db, verify_admin):
+def build_policy_router(db, verify_admin, verify_admin_reauth):
     router = APIRouter(prefix="/api", tags=["legal-policies"])
 
     async def latest_version(slug):
@@ -106,9 +106,12 @@ def build_policy_router(db, verify_admin):
         ).sort("version", -1).to_list(100)
 
     @router.put("/admin/policies/{slug}")
-    async def admin_update_policy(slug: str, inp: PolicyUpdate, admin: str = Depends(verify_admin)):
+    async def admin_update_policy(slug: str, inp: PolicyUpdate, request: Request, response: Response,
+                                  admin: str = Depends(verify_admin)):
         if slug not in POLICY_CATALOG:
             raise HTTPException(404, "Policy not found")
+        if inp.publish:
+            await verify_admin_reauth(request, admin)
         current_version = await latest_version(slug)
         if inp.expected_version != current_version:
             raise HTTPException(409, "Policy changed elsewhere. Reload before saving.")
@@ -151,6 +154,8 @@ def build_policy_router(db, verify_admin):
             "action": "policy_published" if inp.publish else "policy_draft_saved",
             "actor": admin, "detail": f"{slug}:v{next_version}", "created_at": now,
         })
+        if inp.publish:
+            response.delete_cookie("admin_reauth", path="/", secure=True, httponly=True, samesite="lax")
         return {k: v for k, v in record.items() if k != "id"}
 
     @router.patch("/admin/policies/{slug}/notice")
