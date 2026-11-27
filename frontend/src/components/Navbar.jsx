@@ -13,6 +13,7 @@ const navLinks = [
   { name: 'Growth Consultation', href: '/consultation' },
   { name: 'Incubator', href: '/incubator' },
   { name: 'AI Tools', href: '/ai-tools' },
+  { name: 'Events', href: '/events' },
   { name: 'Blog', href: '/blog' },
   { name: 'Contact', href: '/contact' },
 ];
