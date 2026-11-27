@@ -28,6 +28,8 @@ import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import GrowthConsultationPage from "@/pages/GrowthConsultationPage";
 import PolicyPage from "@/pages/PolicyPage";
+import EventsPage from "@/pages/EventsPage";
+import EventDetailPage from "@/pages/EventDetailPage";
 
 function AppRouter() {
   const location = useLocation();
@@ -49,6 +51,8 @@ function AppRouter() {
       <Route path="/ai-tools" element={<AIToolsPage />} />
       <Route path="/blog" element={<BlogPage />} />
       <Route path="/blog/:slug" element={<BlogPostPage />} />
+      <Route path="/events" element={<EventsPage />} />
+      <Route path="/events/:id" element={<EventDetailPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/policies/:slug" element={<PolicyPage />} />
       <Route path="/faq" element={<FAQPage />} />
