@@ -24,7 +24,9 @@ JWT_SECRET = os.environ["JWT_SECRET"]
 PUBLIC_SITE_URL = os.environ["PUBLIC_SITE_URL"].rstrip("/")
 
 COOKIE = "admin_token"
+REAUTH_COOKIE = "admin_reauth"
 TOKEN_HOURS = 8
+REAUTH_SECONDS = 300
 MAX_FAILS = 5
 GLOBAL_MAX_FAILS = 25
 LOCK_MINUTES = 15
@@ -79,6 +81,10 @@ def _email_shell(body: str) -> str:
 
 class LoginInput(BaseModel):
     email: str = Field(..., max_length=200)
+    password: str = Field(..., min_length=1, max_length=200)
+
+
+class ReauthInput(BaseModel):
     password: str = Field(..., min_length=1, max_length=200)
 
 
@@ -140,6 +146,46 @@ def build_admin_auth(db):
             upd.update(count=0, locked_until=(_now() + timedelta(minutes=LOCK_MINUTES)).isoformat())
         await db.login_attempts.update_one({"identifier": ident}, {"$set": upd}, upsert=True)
 
+    async def verify_admin_reauth(request: Request, expected_admin: str):
+        token = request.cookies.get(REAUTH_COOKIE)
+        if not token:
+            raise HTTPException(403, "Fresh password confirmation required")
+        try:
+            claims = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except jwt.PyJWTError:
+            raise HTTPException(403, "Password confirmation expired. Please confirm again.")
+        doc = await db.admin_credentials.find_one(
+            {"email": claims.get("sub")}, {"_id": 0, "token_version": 1}
+        )
+        if (claims.get("type") != "admin_reauth" or claims.get("sub") != expected_admin
+                or not doc or doc.get("token_version") != claims.get("ver")):
+            raise HTTPException(403, "Password confirmation expired. Please confirm again.")
+        return True
+
+    @router.post("/reauthenticate")
+    async def reauthenticate(inp: ReauthInput, request: Request, response: Response,
+                             admin: str = Depends(verify_admin)):
+        ident = f"reauth:{_ip(request)}:{admin}"
+        glob = f"reauth:global:{admin}"
+        if await _locked(ident) or await _locked(glob):
+            raise HTTPException(429, f"Too many failed confirmations. Try again in {LOCK_MINUTES} minutes.")
+        doc = await db.admin_credentials.find_one({"email": admin}, {"_id": 0})
+        if not doc or not _check(inp.password, doc.get("password_hash", "")):
+            await _fail(ident, MAX_FAILS)
+            await _fail(glob, GLOBAL_MAX_FAILS)
+            await audit("reauth_failed", request, admin)
+            raise HTTPException(401, "Password confirmation failed")
+        await db.login_attempts.delete_many({"identifier": {"$in": [ident, glob]}})
+        token = jwt.encode(
+            {"sub": admin, "type": "admin_reauth", "ver": doc.get("token_version", 1),
+             "exp": _now() + timedelta(seconds=REAUTH_SECONDS)},
+            JWT_SECRET, algorithm="HS256",
+        )
+        response.set_cookie(REAUTH_COOKIE, token, httponly=True, secure=True, samesite="lax",
+                            max_age=REAUTH_SECONDS, path="/")
+        await audit("reauth_success", request, admin)
+        return {"success": True, "expires_in": REAUTH_SECONDS}
+
     @router.post("/login")
     async def login(inp: LoginInput, request: Request, response: Response):
         email = inp.email.strip().lower()
@@ -173,6 +219,7 @@ def build_admin_auth(db):
             # Logout remains idempotent for expired or already-invalid sessions.
             pass
         response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="lax")
+        response.delete_cookie(REAUTH_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
         return {"success": True}
 
     @router.get("/verify")
@@ -224,6 +271,7 @@ def build_admin_auth(db):
         await db.admin_reset_tokens.update_many({"used": False}, {"$set": {"used": True}})
         await db.login_attempts.delete_many({})
         response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="lax")
+        response.delete_cookie(REAUTH_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
         await audit("password_reset", request)
         notice = ("<p>The Flareonix admin password was just changed using a reset link, and all admin "
                   "sessions were signed out.</p><p>If this was not you, request a new reset link straight away.</p>")
@@ -234,4 +282,4 @@ def build_admin_auth(db):
             logger.warning("Password-changed notice could not be emailed")
         return {"success": True}
 
-    return router, verify_admin
+    return router, verify_admin, verify_admin_reauth
