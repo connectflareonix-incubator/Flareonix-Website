@@ -4,6 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import hashlib
 import httpx
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
@@ -45,7 +46,11 @@ async def get_current_user(request: Request):
     if not session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    session = await db.user_sessions.find_one({"session_token": session_token}, {"_id": 0})
+    token_hash = hashlib.sha256(session_token.encode("utf-8")).hexdigest()
+    session = await db.user_sessions.find_one({"session_token_hash": token_hash}, {"_id": 0})
+    if not session:
+        # Backward compatibility for sessions issued before token hashing was introduced.
+        session = await db.user_sessions.find_one({"session_token": session_token}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
     
@@ -236,6 +241,8 @@ async def exchange_session(request: Request, response: Response):
     name = auth_data.get("name")
     picture = auth_data.get("picture")
     session_token = auth_data.get("session_token")
+    if not isinstance(session_token, str) or len(session_token) < 20:
+        raise HTTPException(status_code=401, detail="Identity provider returned an invalid session")
     
     # Check if user exists
     existing_user = await db.users.find_one({"email": email}, {"_id": 0})
@@ -266,7 +273,9 @@ async def exchange_session(request: Request, response: Response):
     expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_DURATION_DAYS)
     session_doc = {
         "user_id": user_id,
-        "session_token": session_token,
+        # Never persist the bearer credential itself; retain only a SHA-256 lookup hash.
+        "session_token": f"stored_{uuid.uuid4().hex}",
+        "session_token_hash": hashlib.sha256(session_token.encode("utf-8")).hexdigest(),
         "expires_at": expires_at.isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -350,7 +359,10 @@ async def google_callback(request: Request, response: Response):
     expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_DURATION_DAYS)
     await db.user_sessions.delete_many({"user_id": user_id})
     await db.user_sessions.insert_one({
-        "user_id": user_id, "session_token": session_token,
+        "user_id": user_id,
+        # Store a one-way lookup hash, never the browser's bearer token.
+        "session_token": f"stored_{uuid.uuid4().hex}",
+        "session_token_hash": hashlib.sha256(session_token.encode("utf-8")).hexdigest(),
         "expires_at": expires_at.isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat()
     })
@@ -372,7 +384,11 @@ async def logout(request: Request, response: Response):
     """Logout user"""
     session_token = request.cookies.get("session_token")
     if session_token:
-        await db.user_sessions.delete_one({"session_token": session_token})
+        token_hash = hashlib.sha256(session_token.encode("utf-8")).hexdigest()
+        deleted = await db.user_sessions.delete_one({"session_token_hash": token_hash})
+        if not deleted.deleted_count:
+            # Backward compatibility for older unhashed sessions.
+            await db.user_sessions.delete_one({"session_token": session_token})
     
     response.delete_cookie(key="session_token", path="/")
     return {"success": True}
