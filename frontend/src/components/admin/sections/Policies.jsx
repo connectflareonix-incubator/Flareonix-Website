@@ -41,7 +41,14 @@ const Policies = () => {
       await open(selected);
       await load();
     } catch (e) {
-      toast.error(e?.response?.status === 409 ? 'This policy changed elsewhere. Reload it before saving.' : 'Could not save policy');
+      const status = e?.response?.status;
+      toast.error(
+        status === 401 ? 'Password incorrect or admin session expired. Please try again.' :
+        status === 403 ? 'Password confirmation expired. Please confirm again.' :
+        status === 429 ? 'Too many attempts. Wait before trying again.' :
+        status === 409 ? 'This policy changed elsewhere. Reload it before saving.' :
+        'Could not save policy'
+      );
     } finally {
       setPublishing(false);
       if (publish) { setReauthPassword(""); setReauthOpen(false); }
