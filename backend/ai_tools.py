@@ -14,7 +14,6 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, Strea
 # Model IDs below are taken from the published Emergent SDK examples.
 # Keep the catalogue deliberately small and avoid advertising unverified/fictitious IDs.
 MODELS = {
-    "claude-sonnet-4-6": {"provider": "anthropic", "label": "Claude Sonnet 4.6", "hint": "Balanced quality for everyday work"},
     "gpt-4o-mini": {"provider": "openai", "label": "GPT-4o mini", "hint": "Lower-cost option for quick drafts"},
 }
 DEFAULT_MODEL = "gpt-4o-mini"
