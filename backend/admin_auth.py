@@ -98,6 +98,8 @@ async def ensure_admin_credentials(db):
     await db.login_attempts.create_index("identifier")
     await db.admin_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.admin_reset_tokens.create_index("token_hash")
+    await db.admin_reauth_tokens.create_index("jti", unique=True)
+    await db.admin_reauth_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.admin_audit.create_index("created_at")
     doc = await db.admin_credentials.find_one({"email": ADMIN_EMAIL}, {"_id": 0, "env_hash": 1})
     if doc and _check(ADMIN_PASSWORD, doc.get("env_hash")):
@@ -158,8 +160,15 @@ def build_admin_auth(db):
             {"email": claims.get("sub")}, {"_id": 0, "token_version": 1}
         )
         if (claims.get("type") != "admin_reauth" or claims.get("sub") != expected_admin
-                or not doc or doc.get("token_version") != claims.get("ver")):
+                or not doc or doc.get("token_version") != claims.get("ver") or not claims.get("jti")):
             raise HTTPException(403, "Password confirmation expired. Please confirm again.")
+        # Atomically consume the server-side confirmation record: replay and concurrent reuse fail.
+        consumed = await db.admin_reauth_tokens.find_one_and_delete({
+            "jti": claims["jti"], "email": expected_admin, "token_version": claims.get("ver"),
+            "expires_at": {"$gt": _now()},
+        })
+        if not consumed:
+            raise HTTPException(403, "Password confirmation already used or expired. Please confirm again.")
         return True
 
     @router.post("/reauthenticate")
@@ -176,9 +185,16 @@ def build_admin_auth(db):
             await audit("reauth_failed", request, admin)
             raise HTTPException(401, "Password confirmation failed")
         await db.login_attempts.delete_many({"identifier": {"$in": [ident, glob]}})
+        reauth_jti = uuid.uuid4().hex
+        token_version = doc.get("token_version", 1)
+        expires_at = _now() + timedelta(seconds=REAUTH_SECONDS)
+        await db.admin_reauth_tokens.insert_one({
+            "jti": reauth_jti, "email": admin, "token_version": token_version,
+            "expires_at": expires_at,
+        })
         token = jwt.encode(
-            {"sub": admin, "type": "admin_reauth", "ver": doc.get("token_version", 1),
-             "exp": _now() + timedelta(seconds=REAUTH_SECONDS)},
+            {"sub": admin, "type": "admin_reauth", "ver": token_version, "jti": reauth_jti,
+             "exp": expires_at},
             JWT_SECRET, algorithm="HS256",
         )
         response.set_cookie(REAUTH_COOKIE, token, httponly=True, secure=True, samesite="lax",
