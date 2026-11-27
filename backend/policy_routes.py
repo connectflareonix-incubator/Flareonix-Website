@@ -112,6 +112,8 @@ def build_policy_router(db, verify_admin, verify_admin_reauth):
             raise HTTPException(404, "Policy not found")
         if inp.publish:
             await verify_admin_reauth(request, admin)
+            # Consume the confirmation immediately, including when a later version check fails.
+            response.delete_cookie("admin_reauth", path="/", secure=True, httponly=True, samesite="lax")
         current_version = await latest_version(slug)
         if inp.expected_version != current_version:
             raise HTTPException(409, "Policy changed elsewhere. Reload before saving.")
@@ -154,8 +156,6 @@ def build_policy_router(db, verify_admin, verify_admin_reauth):
             "action": "policy_published" if inp.publish else "policy_draft_saved",
             "actor": admin, "detail": f"{slug}:v{next_version}", "created_at": now,
         })
-        if inp.publish:
-            response.delete_cookie("admin_reauth", path="/", secure=True, httponly=True, samesite="lax")
         return {k: v for k, v in record.items() if k != "id"}
 
     @router.patch("/admin/policies/{slug}/notice")
