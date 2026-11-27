@@ -1,8 +1,4 @@
-"""Versioned legal-policy storage and publication endpoints.
-
-Published versions are retained in a separate history collection. There is no
-policy delete endpoint. Access to these routes is limited to the admin session.
-"""
+"""Versioned legal-policy storage. Drafts never replace live published documents."""
 import uuid
 from datetime import datetime, timezone
 
@@ -40,12 +36,18 @@ class NoticeUpdate(BaseModel):
 def build_policy_router(db, verify_admin):
     router = APIRouter(prefix="/api", tags=["legal-policies"])
 
+    async def latest_version(slug):
+        latest = await db.legal_policy_versions.find_one(
+            {"slug": slug}, {"_id": 0, "version": 1}, sort=[("version", -1)]
+        )
+        return int(latest.get("version", 0)) if latest else 0
+
     @router.get("/policies")
     async def public_policy_index():
-        docs = await db.legal_policies.find(
-            {"published": True}, {"_id": 0, "slug": 1, "title": 1, "published_at": 1, "version": 1}
+        return await db.legal_policies.find(
+            {"published": True},
+            {"_id": 0, "slug": 1, "title": 1, "published_at": 1, "version": 1},
         ).to_list(50)
-        return docs
 
     @router.get("/policies/{slug}")
     async def public_policy(slug: str):
@@ -53,7 +55,7 @@ def build_policy_router(db, verify_admin):
             raise HTTPException(404, "Policy not found")
         doc = await db.legal_policies.find_one(
             {"slug": slug, "published": True},
-            {"_id": 0, "slug": 1, "title": 1, "content": 1, "version": 1, "published_at": 1}
+            {"_id": 0, "slug": 1, "title": 1, "content": 1, "version": 1, "published_at": 1},
         )
         if not doc:
             raise HTTPException(404, "Policy not published")
@@ -61,24 +63,38 @@ def build_policy_router(db, verify_admin):
 
     @router.get("/admin/policies")
     async def admin_policy_index(admin: str = Depends(verify_admin)):
-        docs = await db.legal_policies.find({}, {"_id": 0}).to_list(50)
-        by_slug = {d["slug"]: d for d in docs}
-        return [
-            by_slug.get(slug, {
-                "slug": slug, "title": title, "content": "", "version": 0,
-                "published": False, "show_draft_notice": True,
+        published = {d["slug"]: d for d in await db.legal_policies.find({}, {"_id": 0}).to_list(50)}
+        drafts = {d["slug"]: d for d in await db.legal_policy_drafts.find({}, {"_id": 0}).to_list(50)}
+        result = []
+        for slug, title in POLICY_CATALOG.items():
+            live = published.get(slug, {})
+            draft = drafts.get(slug, {})
+            result.append({
+                "slug": slug, "title": draft.get("title", live.get("title", title)),
+                "version": draft.get("version", await latest_version(slug)),
+                "published": bool(live.get("published", False)),
+                "published_version": live.get("version", 0),
+                "show_draft_notice": live.get("show_draft_notice", True),
+                "has_unpublished_draft": bool(draft),
             })
-            for slug, title in POLICY_CATALOG.items()
-        ]
+        return result
 
     @router.get("/admin/policies/{slug}")
     async def admin_get_policy(slug: str, admin: str = Depends(verify_admin)):
         if slug not in POLICY_CATALOG:
             raise HTTPException(404, "Policy not found")
-        doc = await db.legal_policies.find_one({"slug": slug}, {"_id": 0})
-        return doc or {
-            "slug": slug, "title": POLICY_CATALOG[slug], "content": "",
-            "version": 0, "published": False, "show_draft_notice": True,
+        live = await db.legal_policies.find_one({"slug": slug}, {"_id": 0}) or {}
+        draft = await db.legal_policy_drafts.find_one({"slug": slug}, {"_id": 0}) or {}
+        source = draft or live
+        return {
+            "slug": slug,
+            "title": source.get("title", POLICY_CATALOG[slug]),
+            "content": source.get("content", ""),
+            "version": source.get("version", await latest_version(slug)),
+            "published": bool(live.get("published", False)),
+            "published_version": live.get("version", 0),
+            "show_draft_notice": live.get("show_draft_notice", True),
+            "has_unpublished_draft": bool(draft),
         }
 
     @router.get("/admin/policies/{slug}/versions")
@@ -90,53 +106,55 @@ def build_policy_router(db, verify_admin):
         ).sort("version", -1).to_list(100)
 
     @router.put("/admin/policies/{slug}")
-    async def admin_update_policy(
-        slug: str, inp: PolicyUpdate, admin: str = Depends(verify_admin)
-    ):
+    async def admin_update_policy(slug: str, inp: PolicyUpdate, admin: str = Depends(verify_admin)):
         if slug not in POLICY_CATALOG:
             raise HTTPException(404, "Policy not found")
-        current = await db.legal_policies.find_one({"slug": slug}, {"_id": 0})
-        current_version = int((current or {}).get("version", 0))
+        current_version = await latest_version(slug)
         if inp.expected_version != current_version:
             raise HTTPException(409, "Policy changed elsewhere. Reload before saving.")
-
         next_version = current_version + 1
         now = _now()
-        published = bool(inp.publish)
         record = {
             "id": str(uuid.uuid4()), "slug": slug, "version": next_version,
             "title": inp.title.strip(), "content": inp.content,
-            "published": published, "published_at": now if published else None,
-            "saved_at": now, "saved_by": admin,
+            "published": bool(inp.publish), "saved_at": now, "saved_by": admin,
+            "published_at": now if inp.publish else None,
         }
-        # Unique index on (slug, version) prevents duplicate version numbers.
         try:
             await db.legal_policy_versions.insert_one(dict(record))
         except Exception:
             raise HTTPException(409, "Could not create a unique policy version. Reload and retry.")
 
-        result = await db.legal_policies.update_one(
-            {"slug": slug, "version": current_version},
-            {"$set": {
-                "title": record["title"], "content": record["content"],
-                "version": next_version, "published": published,
-                "published_at": record["published_at"], "updated_at": now,
-                "updated_by": admin,
-            }, "$setOnInsert": {"slug": slug, "show_draft_notice": True}},
-            upsert=(current is None),
-        )
-        if result.matched_count == 0 and current is not None:
-            raise HTTPException(409, "Policy changed concurrently. Reload before saving.")
+        if inp.publish:
+            await db.legal_policies.update_one(
+                {"slug": slug},
+                {"$set": {
+                    "slug": slug, "title": record["title"], "content": record["content"],
+                    "version": next_version, "published": True, "published_at": now,
+                    "updated_at": now, "updated_by": admin,
+                }, "$setOnInsert": {"show_draft_notice": True}},
+                upsert=True,
+            )
+            await db.legal_policy_drafts.delete_one({"slug": slug})
+        else:
+            await db.legal_policy_drafts.update_one(
+                {"slug": slug},
+                {"$set": {
+                    "slug": slug, "title": record["title"], "content": record["content"],
+                    "version": next_version, "updated_at": now, "updated_by": admin,
+                }},
+                upsert=True,
+            )
+
         await db.admin_audit.insert_one({
-            "id": str(uuid.uuid4()), "action": "policy_published" if published else "policy_draft_saved",
+            "id": str(uuid.uuid4()),
+            "action": "policy_published" if inp.publish else "policy_draft_saved",
             "actor": admin, "detail": f"{slug}:v{next_version}", "created_at": now,
         })
         return {k: v for k, v in record.items() if k != "id"}
 
     @router.patch("/admin/policies/{slug}/notice")
-    async def admin_policy_notice(
-        slug: str, inp: NoticeUpdate, admin: str = Depends(verify_admin)
-    ):
+    async def admin_policy_notice(slug: str, inp: NoticeUpdate, admin: str = Depends(verify_admin)):
         if slug not in POLICY_CATALOG:
             raise HTTPException(404, "Policy not found")
         await db.legal_policies.update_one(
