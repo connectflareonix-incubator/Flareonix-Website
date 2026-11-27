@@ -48,6 +48,7 @@ async def init_db(db):
     await db.announcements.create_index("is_active")
     await db.site_settings.create_index("key", unique=True)
     await db.legal_policies.create_index("slug", unique=True)
+    await db.legal_policy_drafts.create_index("slug", unique=True)
     await db.legal_policy_versions.create_index([("slug", 1), ("version", 1)], unique=True)
     await db.legal_policy_versions.create_index([("slug", 1), ("saved_at", -1)])
     await db.webhook_endpoints.create_index("name", unique=True)
