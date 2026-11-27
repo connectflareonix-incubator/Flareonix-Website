@@ -31,7 +31,7 @@ ADMIN_EMAIL = os.environ['ADMIN_EMAIL'].strip().lower()
 SESSION_DURATION_DAYS = 7
 
 from admin_auth import build_admin_auth, ensure_admin_credentials  # noqa: E402
-admin_auth_router, verify_admin = build_admin_auth(db)
+admin_auth_router, verify_admin, verify_admin_reauth = build_admin_auth(db)
 
 
 async def get_current_user(request: Request):
@@ -743,7 +743,7 @@ app.include_router(build_content_router(db, verify_admin, get_current_user))
 
 # Versioned legal policies are isolated from ordinary editable site content.
 from policy_routes import build_policy_router
-app.include_router(build_policy_router(db, verify_admin))
+app.include_router(build_policy_router(db, verify_admin, verify_admin_reauth))
 
 
 # DB init on startup
