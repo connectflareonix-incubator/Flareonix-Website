@@ -2,7 +2,9 @@
 import os
 import json
 import uuid
-from datetime import datetime, timezone
+import logging
+from datetime import datetime, timezone, timedelta
+from pymongo.errors import DuplicateKeyError
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
@@ -10,12 +12,74 @@ from pydantic import BaseModel, Field
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
 
+# Model IDs below are taken from the published Emergent SDK examples.
+# Keep the catalogue deliberately small and avoid advertising unverified/fictitious IDs.
 MODELS = {
-    "claude-sonnet-5-5": {"provider": "anthropic", "label": "Claude Sonnet 5.5", "hint": "Balanced, great everyday writing"},
-    "claude-opus-5-5": {"provider": "anthropic", "label": "Claude Opus 5.5", "hint": "Deepest thinking, slower"},
-    "gpt-6-luna": {"provider": "openai", "label": "GPT 6 Luna", "hint": "Fastest, best for quick drafts"},
+    "gpt-4o-mini": {"provider": "openai", "label": "GPT-4o mini", "hint": "Lower-cost option for quick drafts"},
 }
-DEFAULT_MODEL = "claude-sonnet-5-5"
+DEFAULT_MODEL = "gpt-4o-mini"
+
+# Conservative launch guardrails. These cap request volume, not a guaranteed
+# currency spend; actual billing remains token/model dependent.
+USER_HOURLY_LIMIT = 3
+USER_DAILY_LIMIT = 10
+GLOBAL_DAILY_LIMIT = 50
+MAX_OUTPUT_TOKENS = 1024
+
+async def _reserve_quota(db, user_id: str):
+    """Atomically reserve all quota buckets; roll back earlier reservations on failure."""
+    now = datetime.now(timezone.utc)
+    hour_key = now.strftime("%Y%m%d%H")
+    day_key = now.strftime("%Y%m%d")
+    windows = [
+        ("user_hour", f"{user_id}:{hour_key}", USER_HOURLY_LIMIT),
+        ("user_day", f"{user_id}:{day_key}", USER_DAILY_LIMIT),
+        ("global_day", day_key, GLOBAL_DAILY_LIMIT),
+    ]
+    reserved = []
+
+    async def reserve_one(scope: str, key: str, limit: int) -> bool:
+        selector = {"scope": scope, "key": key, "count": {"$lt": limit}}
+        updated = await db.ai_usage_limits.find_one_and_update(
+            selector, {"$inc": {"count": 1}}
+        )
+        if updated is not None:
+            return True
+
+        # First request in this window. Unique (scope, key) index resolves races.
+        try:
+            await db.ai_usage_limits.insert_one({
+                "scope": scope,
+                "key": key,
+                "count": 1,
+                "created_at": now,
+                "expires_at": now + timedelta(days=3),
+            })
+            return True
+        except DuplicateKeyError:
+            # Another request created the bucket concurrently; try its capped increment.
+            updated = await db.ai_usage_limits.find_one_and_update(
+                selector, {"$inc": {"count": 1}}
+            )
+            return updated is not None
+
+    try:
+        for scope, key, limit in windows:
+            if not await reserve_one(scope, key, limit):
+                raise HTTPException(
+                    status_code=429,
+                    detail="AI usage limit reached. Please try again later.",
+                    headers={"Retry-After": "3600" if scope == "user_hour" else "86400"},
+                )
+            reserved.append((scope, key))
+    except Exception:
+        # Undo any earlier buckets if a later bucket rejected or failed.
+        for scope, key in reversed(reserved):
+            await db.ai_usage_limits.update_one(
+                {"scope": scope, "key": key, "count": {"$gt": 0}},
+                {"$inc": {"count": -1}},
+            )
+        raise
 
 
 def _key() -> str:
@@ -133,10 +197,14 @@ def build_router(db, get_current_user):
         model = MODELS.get(req.model)
         if not model:
             raise HTTPException(status_code=400, detail="Unknown model")
-        session_id = req.session_id or f"ai_{user['user_id']}_{req.tool}_{uuid.uuid4().hex[:8]}"
+        # Fail closed before reserving quota if the provider key is missing.
+        api_key = _key()
+        # Reserve quotas before contacting the paid model provider.
+        await _reserve_quota(db, user["user_id"])
+        session_id = f"ai_{user['user_id']}_{req.tool}_{uuid.uuid4().hex[:8]}"
         chat = LlmChat(
-            api_key=_key(), session_id=session_id, system_message=cfg["system"],
-        ).with_model(model["provider"], req.model)
+            api_key=api_key, session_id=session_id, system_message=cfg["system"],
+        ).with_model(model["provider"], req.model).with_params(max_tokens=MAX_OUTPUT_TOKENS)
 
         def sse(payload: dict) -> str:
             return f"data: {json.dumps(payload)}\n\n"
@@ -150,8 +218,9 @@ def build_router(db, get_current_user):
                         yield sse({"type": "delta", "content": ev.content})
                     elif isinstance(ev, StreamDone):
                         break
-            except Exception as e:
-                yield sse({"type": "error", "detail": f"AI generation failed: {str(e)[:200]}"})
+            except Exception:
+                logging.exception("AI provider generation failed for user_id=%s tool=%s", user["user_id"], req.tool)
+                yield sse({"type": "error", "detail": "AI generation is temporarily unavailable. Please try again later."})
                 return
             doc = GenerationDoc(
                 user_id=user["user_id"], user_email=user["email"], tool=req.tool,
