@@ -765,6 +765,8 @@ async def root():
 # Include the router in the main app
 app.include_router(api_router)
 app.include_router(admin_auth_router)
+from ai_tools import build_router as build_ai_router
+app.include_router(build_ai_router(db, get_current_user))
 from events_routes import build_events_router
 app.include_router(build_events_router(db, verify_admin, get_current_user))
 
