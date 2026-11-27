@@ -34,6 +34,7 @@ async def init_db(db):
     # Indexes
     await db.users.create_index("email", unique=True, sparse=True)
     await db.user_sessions.create_index("session_token", unique=True)
+    await db.user_sessions.create_index("session_token_hash", unique=True, sparse=True)
     await db.blog_posts.create_index("slug", unique=True)
     await db.blog_posts.create_index("status")
     await db.blog_posts.create_index("category")
