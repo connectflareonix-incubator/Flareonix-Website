@@ -48,6 +48,14 @@ def _serialize_doc(d: dict) -> dict:
 def build_content_router(db, verify_admin, get_current_user):
     router = APIRouter(prefix="/api", tags=["content-admin"])
 
+    async def get_optional_current_user(request: Request):
+        try:
+            return await get_current_user(request)
+        except HTTPException as exc:
+            if exc.status_code in (401, 403):
+                return None
+            raise
+
     # ============ BLOG (admin CRUD + public list) ============
 
     @router.get("/blog/posts")
@@ -58,14 +66,21 @@ def build_content_router(db, verify_admin, get_current_user):
         return items
 
     @router.get("/blog/posts/{slug}")
-    async def get_post_by_slug(slug: str):
+    async def get_post_by_slug(
+        slug: str, user: Optional[dict] = Depends(get_optional_current_user)
+    ):
         post = await db.blog_posts.find_one({"slug": slug, "status": "published"}, {"_id": 0})
         if not post:
             raise HTTPException(404, "Post not found")
         await db.blog_posts.update_one({"id": post["id"]}, {"$inc": {"views": 1}})
-        comments = await db.blog_comments.find(
-            {"post_id": post["id"]}, {"_id": 0}
-        ).sort("created_at", -1).to_list(200)
+        # Blog comments are a private conversation thread, not a public directory.
+        # Only return the authenticated visitor's own comments, never their email address.
+        comments = []
+        if user:
+            comments = await db.blog_comments.find(
+                {"post_id": post["id"], "user_id": user["user_id"]},
+                {"_id": 0, "user_email": 0},
+            ).sort("created_at", -1).to_list(200)
         post["comments"] = comments
         return post
 
