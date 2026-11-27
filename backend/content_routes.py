@@ -315,20 +315,36 @@ def build_content_router(db, verify_admin, get_current_user):
 
     # ============ SETTINGS ============
 
+    PUBLIC_SETTING_KEYS = {
+        "contact_email", "contact_phone", "contact_whatsapp", "contact_address",
+        "social_instagram", "social_linkedin", "whatsapp_community", "calendly_link",
+        "tagline", "mission", "stat_founders", "stat_businesses", "stat_projects",
+        "gstin",
+    }
+
     @router.get("/settings")
     async def public_settings():
-        items = await db.site_settings.find({}, {"_id": 0}).to_list(200)
+        items = await db.site_settings.find(
+            {"key": {"$in": list(PUBLIC_SETTING_KEYS)}}, {"_id": 0}
+        ).to_list(200)
         return {it["key"]: it["value"] for it in items}
 
     @router.put("/admin/settings/{key}")
     async def admin_update_setting(key: str, inp: SettingUpdate,
-                                   _: str = Depends(verify_admin)):
+                                   admin: str = Depends(verify_admin)):
+        if key not in PUBLIC_SETTING_KEYS:
+            raise HTTPException(400, "This setting cannot be changed through the general settings API")
+        value = inp.value
+        if key == "gstin":
+            value = str(value or "").strip().upper()
+            if value and not re.fullmatch(r"[0-9A-Z]{15}", value):
+                raise HTTPException(422, "GSTIN must contain exactly 15 letters/numbers")
         await db.site_settings.update_one(
             {"key": key},
-            {"$set": {"value": inp.value, "updated_at": _now().isoformat()}},
+            {"$set": {"value": value, "updated_at": _now().isoformat(), "updated_by": admin}},
             upsert=True,
         )
-        return {"key": key, "value": inp.value}
+        return {"key": key, "value": value}
 
     # ============ WEBHOOK ============
 
