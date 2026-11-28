@@ -97,7 +97,10 @@ def build_content_router(db, verify_admin, get_current_user):
         ).model_dump()
         c["created_at"] = c["created_at"].isoformat()
         await db.blog_comments.insert_one(c)
-        return _serialize_doc(c)
+        public_comment = _serialize_doc(c)
+        public_comment.pop("user_email", None)
+        public_comment.pop("user_id", None)
+        return public_comment
 
     @router.get("/admin/blog/posts")
     async def admin_list_posts(_: str = Depends(verify_admin)):
