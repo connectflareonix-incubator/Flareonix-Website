@@ -326,6 +326,19 @@ async def google_callback(request: Request, response: Response):
             }
         )
         if token_response.status_code != 200:
+            # Log only Google's non-secret error classification; never log codes,
+            # client credentials, tokens, or PKCE verifiers.
+            try:
+                google_error = token_response.json()
+                error_code = str(google_error.get("error", "unknown"))[:80]
+                error_description = str(google_error.get("error_description", ""))[:240]
+            except (ValueError, TypeError):
+                error_code = "unparseable_error"
+                error_description = ""
+            logging.warning(
+                "Google OAuth token exchange failed: status=%s error=%s description=%s",
+                token_response.status_code, error_code, error_description
+            )
             raise HTTPException(status_code=401, detail="Failed to exchange code")
         tokens = token_response.json()
         userinfo_response = await client.get(
