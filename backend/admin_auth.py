@@ -3,6 +3,7 @@ import os
 import re
 import uuid
 import hashlib
+import ipaddress
 import secrets
 import logging
 from datetime import datetime, timezone, timedelta
@@ -59,8 +60,20 @@ def _sha(token: str) -> str:
 
 
 def _ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for", "")
-    return fwd.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    # Render routes public traffic through Cloudflare and supplies the
+    # verified client address in CF-Connecting-IP. Do not trust the
+    # leftmost X-Forwarded-For value: callers can supply that header.
+    forwarded = request.headers.get("cf-connecting-ip", "").strip()
+    if forwarded:
+        try:
+            return str(ipaddress.ip_address(forwarded))
+        except ValueError:
+            logger.warning("Ignoring invalid CF-Connecting-IP header")
+    peer = request.client.host if request.client else ""
+    try:
+        return str(ipaddress.ip_address(peer))
+    except ValueError:
+        return "unknown"
 
 
 def _mask(email: str) -> str:
