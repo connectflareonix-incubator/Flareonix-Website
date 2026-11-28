@@ -60,15 +60,16 @@ def _sha(token: str) -> str:
 
 
 def _ip(request: Request) -> str:
-    # Render routes public traffic through Cloudflare and supplies the
-    # verified client address in CF-Connecting-IP. Do not trust the
-    # leftmost X-Forwarded-For value: callers can supply that header.
-    forwarded = request.headers.get("cf-connecting-ip", "").strip()
-    if forwarded:
+    # Render appends the connecting client IP to X-Forwarded-For.
+    # Use the rightmost value so a caller-supplied prefix cannot spoof
+    # the address used by admin lockout and audit logging.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    candidates = [part.strip() for part in forwarded.split(",") if part.strip()]
+    for candidate in reversed(candidates):
         try:
-            return str(ipaddress.ip_address(forwarded))
+            return str(ipaddress.ip_address(candidate))
         except ValueError:
-            logger.warning("Ignoring invalid CF-Connecting-IP header")
+            continue
     peer = request.client.host if request.client else ""
     try:
         return str(ipaddress.ip_address(peer))
