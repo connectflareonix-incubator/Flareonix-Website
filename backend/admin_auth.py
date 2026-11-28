@@ -3,6 +3,7 @@ import os
 import re
 import uuid
 import hashlib
+import ipaddress
 import secrets
 import logging
 from datetime import datetime, timezone, timedelta
@@ -59,8 +60,21 @@ def _sha(token: str) -> str:
 
 
 def _ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for", "")
-    return fwd.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    # Render appends the connecting client IP to X-Forwarded-For.
+    # Use the rightmost value so a caller-supplied prefix cannot spoof
+    # the address used by admin lockout and audit logging.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    candidates = [part.strip() for part in forwarded.split(",") if part.strip()]
+    for candidate in reversed(candidates):
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
+    peer = request.client.host if request.client else ""
+    try:
+        return str(ipaddress.ip_address(peer))
+    except ValueError:
+        return "unknown"
 
 
 def _mask(email: str) -> str:
