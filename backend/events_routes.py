@@ -73,7 +73,7 @@ def build_events_router(db, verify_admin, get_current_user):
     async def list_comments(key: str):
         ev = await _public_event(key)
         return await db.event_comments.find(
-            {"event_id": ev["id"]}, {"_id": 0, "user_email": 0}
+            {"event_id": ev["id"]}, {"_id": 0, "user_email": 0, "user_id": 0}
         ).sort("created_at", -1).to_list(500)
 
     @router.post("/events/{key}/comments")
@@ -95,6 +95,7 @@ def build_events_router(db, verify_admin, get_current_user):
         await db.event_comments.insert_one(c)
         out = _serialize(c)
         out.pop("user_email", None)
+        out.pop("user_id", None)
         return out
 
     # ============ WAITLIST (closed until privacy policy + review are done) ============
